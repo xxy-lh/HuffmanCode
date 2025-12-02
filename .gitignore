@@ -1,0 +1,41 @@
+# Log files
+*.log
+
+# Dependency directories
+/node_modules/
+/frontend/node_modules/
+
+# Build output
+/build/
+/frontend/dist/
+
+# IDE and editor files
+.gradle
+!gradle/wrapper/gradle-wrapper.jar
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
