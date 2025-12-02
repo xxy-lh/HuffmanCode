@@ -133,16 +133,27 @@
             <div v-else class="result-content">
               <div class="result-display">
                 <div class="result-item">
-                  <h3>编码结果</h3>
+                  <div class="result-header">
+                    <h3>编码结果</h3>
+                    <button class="copy-btn" @click="copyToClipboard(encodeResult.encodedText)">复制</button>
+                  </div>
                   <div class="code-box">{{ encodeResult.encodedText }}</div>
                 </div>
+
+                <div class="result-item">
+                  <div class="result-header">
+                    <h3>哈夫曼编码表</h3>
+                    <div class="btn-group">
+                      <button class="copy-btn" @click="copyToClipboard(formatCodes(encodeResult.codes))">复制</button>
+                      <button class="copy-btn primary" @click="copyToClipboard(JSON.stringify(encodeResult.codes))">复制为 JSON</button>
+                    </div>
+                  </div>
+                  <div class="code-box">{{ formatCodes(encodeResult.codes) }}</div>
+                </div>
+
                 <div class="result-item">
                   <h3>字符频率</h3>
                   <div class="code-box">{{ formatFrequencies(encodeResult.frequencies) }}</div>
-                </div>
-                <div class="result-item">
-                  <h3>哈夫曼编码表</h3>
-                  <div class="code-box">{{ formatCodes(encodeResult.codes) }}</div>
                 </div>
               </div>
             </div>
@@ -179,7 +190,13 @@
             </div>
           </div>
         </div>
+
+        <!-- 树可视化页面 (修改了容器以支持滚动) -->
         <div v-if="activeTab === 'tree'" class="tree-panel">
+          <!-- 添加了提示语 -->
+          <div class="tree-toolbar">
+            <span>提示：按住 Shift 可缩放滚轮，拖拽可移动</span>
+          </div>
           <div class="tree-container">
             <div v-if="!encodeResult" class="placeholder">请先进行编码以生成哈夫曼树</div>
             <div ref="graphContainer" class="graph-container"></div>
@@ -253,6 +270,24 @@ watch([activeTab, encodeResult], async ([newTab, newResult]) => {
     renderTree(newResult.treeDot);
   }
 });
+
+// --- 复制到剪贴板方法 ---
+const copyToClipboard = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    alert('已复制到剪贴板');
+  } catch (err) {
+    console.error('复制失败:', err);
+    // 降级策略
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    alert('已复制到剪贴板');
+  }
+};
 
 // --- 编码方法 ---
 const handleEncode = async () => {
@@ -421,7 +456,13 @@ const renderTree = async (dotString) => {
     const d3 = await import('d3');
     const { graphviz } = await import('d3-graphviz');
     d3.select(graphContainer.value).selectAll('*').remove();
+
+    // 增加 fit 和 zoom 选项
     graphviz(graphContainer.value)
+      .width('100%')
+      .height('100%')
+      .fit(true)
+      .zoom(true)
       .attributer(function() {
         const g = d3.select(this);
         g.graph().nodeAttr('color', '#ffffff').nodeAttr('fontcolor', '#ffffff')
@@ -478,6 +519,7 @@ body, html {
   padding: 24px 16px;
   box-sizing: border-box;
   box-shadow: 4px 0 10px rgba(0,0,0,0.2);
+  z-index: 10; /* 确保侧边栏在上方 */
 }
 
 .user-profile {
@@ -558,20 +600,25 @@ body, html {
 
 /* 3. 右侧主内容区 */
 .main-content {
-  flex: 1;
-  padding: 32px 40px;
+  flex: 1; /* 这里的关键改动：占据所有剩余空间 */
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   box-sizing: border-box;
   min-width: 0;
+  /* 移除左右 padding 以允许全屏，如果需要内边距，加在 page-content 上 */
+  background-color: #1a1a2e;
 }
 
 .page-content {
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
-  flex-grow: 1;
-  min-height: 0;
+  padding: 32px 40px; /* 内容区域的内边距 */
+  width: 100%;
+  max-width: 1400px; /* 限制最大宽度，防止在大屏上拉得太长 */
+  margin: 0 auto; /* 居中显示 */
+  box-sizing: border-box;
 }
 
 /* 头部样式 */
@@ -637,6 +684,7 @@ body, html {
   display: flex;
   gap: 24px;
   min-height: 0;
+  width: 100%;
 }
 
 .coder-panel, .send-panel {
@@ -777,12 +825,48 @@ body, html {
   gap: 16px;
 }
 
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 .result-item h3 {
   font-size: 12px;
   color: #888;
-  margin: 0 0 8px 0;
+  margin: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+}
+
+.copy-btn {
+  background-color: #333;
+  border: none;
+  color: #aaa;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.copy-btn:hover {
+  background-color: #555;
+  color: white;
+}
+
+.copy-btn.primary {
+  background-color: #2c3e50;
+  color: #667eea;
+}
+.copy-btn.primary:hover {
+  background-color: #34495e;
 }
 
 .code-box {
@@ -803,6 +887,15 @@ body, html {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+  height: 100%; /* 确保占满高度 */
+  overflow: hidden;
+}
+
+.tree-toolbar {
+  text-align: center;
+  padding: 8px;
+  color: #666;
+  font-size: 12px;
 }
 
 .tree-container {
@@ -813,12 +906,14 @@ body, html {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
+  overflow: hidden; /* 容器本身不滚动，交给 graphviz 处理 */
+  position: relative;
 }
 
 .graph-container {
   width: 100%;
   height: 100%;
+  overflow: auto; /* 允许内容过大时滚动 */
 }
 
 /* 发送页面样式 */
