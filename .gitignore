@@ -8,12 +8,17 @@
 # Build output
 /build/
 /frontend/dist/
+/out/
 
 # IDE and editor files
-.gradle
-!gradle/wrapper/gradle-wrapper.jar
+.gradle/
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
 
-### STS ###
+# STS
 .apt_generated
 .classpath
 .factorypath
@@ -23,19 +28,18 @@
 .sts4-cache
 bin/
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-out/
-
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
-.vscode/
+# Java
+*.class
+hs_err_pid*
+
+# Don't ignore the wrapper jar
+!gradle/wrapper/gradle-wrapper.jar
+!gradlew
+!gradlew.bat
