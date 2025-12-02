@@ -1,67 +1,150 @@
 <template>
-  <!-- 最外层容器：强制占满全屏 -->
-  <div class="main-app-container">
-    <!-- 左侧导航栏 (固定 25vw) -->
+  <div class="app-wrapper">
+    <!-- 背景层 -->
+    <div class="background-layer"></div>
+
+    <!-- 左侧导航栏 -->
     <aside class="sidebar">
       <div class="user-profile">
         <div class="avatar">{{ username.charAt(0).toUpperCase() }}</div>
         <div class="username">{{ username }}</div>
       </div>
       <nav class="navigation">
-        <a href="#" class="nav-item active"><span>编码</span></a>
-        <a href="#" class="nav-item"><span>发送</span></a>
-        <a href="#" class="nav-item"><span>历史</span></a>
+        <a href="#" :class="['nav-item', { active: activeView === 'encode' }]" @click.prevent="switchView('encode')">
+          <span>📝 编码</span>
+        </a>
+<a href="#" :class="['nav-item', { active: activeView === 'decode' }]" @click.prevent="switchView('decode')">
+          <span>🔓 解码</span>
+        </a>
+<a href="#" :class="['nav-item', { active: activeView === 'tree' }]" @click.prevent="switchView('tree')">
+          <span>🌳 哈夫曼树</span>
+        </a>
       </nav>
       <button @click="logout" class="logout-button">退出登录</button>
     </aside>
 
-    <!-- 右侧主内容区 (固定 75vw) -->
+    <!-- 右侧主内容区 -->
     <main class="main-content">
       <header class="content-header">
         <h1>哈夫曼编码/解码器</h1>
         <p>一个用于文本和数据压缩的可视化工具</p>
       </header>
 
-      <div class="tool-tabs">
-        <button :class="{ active: activeTab === 'encode' }" class="tab-button" @click="activeTab = 'encode'">编码</button>
-        <button :class="{ active: activeTab === 'decode' }" class="tab-button" @click="activeTab = 'decode'">解码</button>
-        <button :class="{ active: activeTab === 'tree' }" class="tab-button" @click="activeTab = 'tree'">哈夫曼树</button>
-      </div>
-
-      <div class="coder-panel">
-        <!-- 输入区 -->
-        <div class="input-section">
-          <h2>要编码的文本</h2>
+      <!-- 编码视图 -->
+      <div v-if="activeView === 'encode'" class="view-content two-column">
+        <div class="card input-card">
+          <h3>要编码的文本</h3>
           <div class="textarea-wrapper">
-            <textarea v-model="textToEncode" placeholder="在此输入文本..."></textarea>
+            <textarea v-model="textToEncode" placeholder="在此输入文本... "></textarea>
           </div>
-          <button @click="handleEncode" class="action-button" :disabled="isLoading">
+          <button @click="handleEncode" class="action-btn" :disabled="isLoading">
             {{ isLoading ? '编码中...' : '生成编码' }}
           </button>
         </div>
-        <!-- 结果展示区 -->
-        <div class="output-section">
-          <h2>结果展示</h2>
-          <div class="result-content">
-            <div v-if="!encodeResult && !isLoading" class="placeholder">
-              <div class="placeholder-icon">⌨️</div>
-              <p>在左侧输入文本以开始...</p>
+
+        <div class="card result-card">
+          <h3>结果展示</h3>
+          <div v-if="encodeResult.encodedText" class="result-content">
+            <div class="result-header">
+              <span class="label">编码后的文本:</span>
+              <button class="copy-btn" @click="copyEncodedText">{{ copyEncodedTextButtonText }}</button>
             </div>
-            <div v-if="isLoading" class="loading-spinner"></div>
-            <div v-if="encodeResult" class="result-display">
-              <div class="result-item">
-                <h3>编码结果</h3>
-                <div class="code-box">{{ encodeResult.encodedText }}</div>
-              </div>
-              <div class="result-item">
-                <h3>字符频率</h3>
-                <div class="code-box">{{ encodeResult.frequencies }}</div>
-              </div>
-              <div class="result-item">
-                <h3>哈夫曼编码表</h3>
-                <div class="code-box">{{ encodeResult.codes }}</div>
+            <div class="result-text-box">{{ encodeResult.encodedText }}</div>
+
+            <div class="result-header mt-3">
+              <span class="label">哈夫曼编码表:</span>
+              <button class="copy-btn" @click="copyCodesAsJson">{{ copyButtonText }}</button>
+            </div>
+            <div class="data-grid" v-if="encodeResult. codes">
+              <div v-for="(code, char) in encodeResult.codes" :key="char" class="data-item">
+                <span class="char">'{{ formatChar(char) }}'</span>
+                <span class="separator">:</span>
+                <span class="value">{{ code }}</span>
               </div>
             </div>
+
+            <div class="result-section mt-3">
+              <span class="label">字符频率:</span>
+              <div class="data-grid" v-if="encodeResult.frequencies">
+                <div v-for="(freq, char) in encodeResult.frequencies" :key="char" class="data-item">
+                  <span class="char">'{{ formatChar(char) }}'</span>
+                  <span class="separator">:</span>
+                  <span class="value">{{ freq }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="placeholder">
+            <span class="placeholder-icon">⌨️</span>
+            <p>在左侧输入文本以开始... </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 解码视图 -->
+      <div v-if="activeView === 'decode'" class="view-content two-column">
+        <div class="card input-card">
+          <h3>解码输入</h3>
+          <label for="encoded-text-input">二进制编码 (0和1)</label>
+          <textarea id="encoded-text-input" v-model="textToDecode" placeholder="在此输入二进制编码..."></textarea>
+          <label for="codes-input" class="mt-2">哈夫曼编码表 (JSON)</label>
+          <textarea id="codes-input" v-model="codesForDecode" class="code-input" placeholder='{"a": "01", "b": "11"}'></textarea>
+          <button @click="handleDecode" class="action-btn" :disabled="isDecoding">
+            {{ isDecoding ? '解码中...' : '执行解码' }}
+          </button>
+        </div>
+        <div class="card result-card">
+          <h3>解码结果</h3>
+          <div v-if="decodeResult.decodedText" class="result-content">
+            <div class="result-section">
+              <span class="label">还原的原文:</span>
+              <div class="result-text-box success-highlight">{{ decodeResult. decodedText }}</div>
+            </div>
+          </div>
+          <div v-else class="placeholder">
+            <span class="placeholder-icon">🔓</span>
+            <p>等待解码输入...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 哈夫曼树可视化视图 -->
+      <div v-if="activeView === 'tree'" class="view-content tree-view">
+        <div class="card info-card">
+          <h3>文本信息</h3>
+          <div v-if="textToEncode && encodeResult.encodedText" class="result-content">
+            <label>原始输入</label>
+            <div class="readonly-text">{{ textToEncode }}</div>
+
+            <label class="mt-3">编码结果</label>
+            <div class="readonly-text code-font">{{ encodeResult.encodedText }}</div>
+
+            <label class="mt-3">压缩信息</label>
+            <div class="stats-box">
+              <div class="stat-item">
+                <span class="stat-label">原始大小:</span>
+                <span class="stat-value">{{ textToEncode.length * 8 }} bits</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">压缩后:</span>
+                <span class="stat-value">{{ encodeResult.encodedText.length }} bits</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">压缩率:</span>
+                <span class="stat-value">{{ compressionRatio }}%</span>
+              </div>
+            </div>
+          </div>
+          <div v-else class="placeholder">
+            <p>请先在"编码"页面输入文本。</p>
+          </div>
+        </div>
+        <div class="card graph-card">
+          <h3>哈夫曼树结构</h3>
+          <div v-if="encodeResult.treeDot" id="graph" class="graph-container"></div>
+          <div v-else class="placeholder">
+            <span class="placeholder-icon">🌳</span>
+            <p>暂无数据可视化</p>
           </div>
         </div>
       </div>
@@ -70,294 +153,287 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, reactive, computed, nextTick, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import axios from 'axios';
+import { graphviz } from 'd3-graphviz';
 
 const router = useRouter();
 
-// --- 响应式状态 ---
 const username = ref('User');
-const textToEncode = ref('');
-const activeTab = ref('encode');
+const activeView = ref('encode');
 const isLoading = ref(false);
-const encodeResult = ref(null);
+const isDecoding = ref(false);
 
-// --- 生命周期钩子 ---
+const textToEncode = ref('');
+const encodeResult = reactive({
+  encodedText: '',
+  codes: null,
+  frequencies: null,
+  treeDot: '',
+});
+
+const textToDecode = ref('');
+const codesForDecode = ref('');
+const decodeResult = reactive({
+  decodedText: '',
+});
+
+const copyButtonText = ref('复制为JSON');
+const copyEncodedTextButtonText = ref('复制');
+
+const compressionRatio = computed(() => {
+  if (!textToEncode.value || !encodeResult.encodedText) return 0;
+  const original = textToEncode.value. length * 8;
+  const compressed = encodeResult.encodedText.length;
+  return ((1 - compressed / original) * 100).toFixed(1);
+});
+
 onMounted(() => {
-  const storedUsername = localStorage.getItem('username');
-  if (storedUsername) {
-    username.value = storedUsername;
+  const storedUser = localStorage.getItem('user');
+  if (storedUser) {
+    try {
+      const user = JSON.parse(storedUser);
+      username.value = user.username || 'User';
+    } catch (e) {
+      username.value = 'User';
+    }
   }
 });
 
-// --- 方法 ---
-const handleEncode = async () => {
-  if (!textToEncode.value.trim()) {
+function switchView(viewName) {
+  activeView. value = viewName;
+}
+
+async function handleEncode() {
+  if (!textToEncode.value. trim()) {
     alert('请输入要编码的文本！');
     return;
   }
+
   isLoading.value = true;
-  encodeResult.value = null;
+  encodeResult.encodedText = '';
+  encodeResult.codes = null;
+  encodeResult.frequencies = null;
+  encodeResult.treeDot = '';
 
   try {
-    const response = await axios.post('/api/huffman/process', {
-      text: textToEncode.value
+    const response = await fetch('/api/huffman/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: textToEncode.value }),
     });
-    encodeResult.value = response.data;
+    const result = await response.json();
+
+    if (! response.ok) {
+      throw new Error(result.message || 'HTTP 错误');
+    }
+
+    encodeResult.encodedText = result.encodedText;
+    encodeResult.codes = result.codes;
+    encodeResult.frequencies = result.frequencies;
+    encodeResult.treeDot = result.treeDot;
+
+    copyButtonText.value = '复制为JSON';
+    copyEncodedTextButtonText.value = '复制';
   } catch (error) {
-    console.error('编码失败:', error);
-    alert('编码失败，请检查后端服务或网络连接。');
+    console.error('编码处理时出错:', error);
+    alert('处理失败: ' + error.message + '\n(请确保后端服务已启动)');
   } finally {
     isLoading.value = false;
   }
-};
+}
 
-const logout = () => {
+async function handleDecode() {
+  if (!textToDecode.value.trim() || !codesForDecode. value.trim()) {
+    alert('请输入要解码的文本和对应的编码表！');
+    return;
+  }
+
+  isDecoding.value = true;
+  decodeResult.decodedText = '';
+
+  try {
+    const codes = JSON.parse(codesForDecode.value);
+    const response = await fetch('/api/huffman/decode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ encodedText: textToDecode.value, codes: codes }),
+    });
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result. message || 'HTTP 错误');
+    }
+
+    decodeResult.decodedText = result.decodedText;
+  } catch (error) {
+    console.error('解码处理时出错:', error);
+    if (error instanceof SyntaxError) {
+      alert('解码失败: 编码表不是有效的JSON格式。');
+    } else {
+      alert('解码失败: ' + error.message);
+    }
+  } finally {
+    isDecoding.value = false;
+  }
+}
+
+function logout() {
+  localStorage.removeItem('user');
   localStorage.removeItem('username');
-  router.push('/');
-};
+  router.push('/login');
+}
+
+async function copyEncodedText() {
+  if (!encodeResult. encodedText) return;
+  try {
+    await navigator.clipboard. writeText(encodeResult.encodedText);
+    copyEncodedTextButtonText.value = '已复制!';
+    setTimeout(() => {
+      copyEncodedTextButtonText.value = '复制';
+    }, 2000);
+  } catch (err) {
+    console.error('复制失败:', err);
+    alert('复制失败，请手动复制。');
+  }
+}
+
+async function copyCodesAsJson() {
+  if (!encodeResult. codes) {
+    alert('没有可复制的编码表！');
+    return;
+  }
+  try {
+    const jsonString = JSON.stringify(encodeResult.codes, null, 2);
+    await navigator.clipboard. writeText(jsonString);
+    copyButtonText.value = '已复制!';
+    setTimeout(() => {
+      copyButtonText. value = '复制为JSON';
+    }, 2000);
+  } catch (err) {
+    console.error('复制失败:', err);
+    alert('复制失败，请检查浏览器权限或手动复制。');
+  }
+}
+
+function formatChar(char) {
+  switch (char) {
+    case ' ': return 'Space';
+    case '\n': return '\\n';
+    case '\t': return '\\t';
+    default: return char;
+  }
+}
+
+function renderGraph() {
+  if (encodeResult.treeDot) {
+    nextTick(() => {
+      const graphContainer = document.querySelector('#graph');
+      if (graphContainer) {
+        graphContainer.innerHTML = '';
+        graphviz(graphContainer, { useWorker: false })
+          .width(graphContainer.clientWidth)
+          .height(graphContainer.clientHeight)
+          . fit(true)
+          .zoom(true)
+          .renderDot(encodeResult.treeDot);
+      }
+    });
+  }
+}
+
+watch(() => encodeResult.treeDot, (newDotValue) => {
+  if (newDotValue) renderGraph();
+});
+
+watch(activeView, (newView) => {
+  if (newView === 'tree') renderGraph();
+});
 </script>
 
 <style>
-/* 强制全局重置，防止外部样式干扰 */
-body, html {
-  margin: 0 !important;
+html, body, #app {
+  margin: 0 ! important;
   padding: 0 !important;
   width: 100%;
   height: 100%;
-  overflow: hidden; /* 禁止 Body 滚动 */
+  overflow: hidden;
 }
 </style>
 
 <style scoped>
-/* 1. 主容器布局 - 强制占满视口 */
-.main-app-container {
-  position: fixed; /* 使用 fixed 定位，脱离文档流，强行铺满 */
+* {
+  box-sizing: border-box;
+}
+
+.app-wrapper {
+  position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
   display: flex;
-  background-color: #f4f7f6;
-  z-index: 999; /* 确保在最上层 */
+  z-index: 999;
 }
 
-/* 2. 左侧导航栏 */
+.background-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background-image: url('https://images.unsplash.com/photo-1550745165-9bc0b252726a?q=80&w=1920');
+  background-size: cover;
+  background-position: center;
+}
+
 .sidebar {
-  width: 25vw; /* 使用 vw 单位，严格占据视口的 25% */
-  flex: 0 0 25vw;
-  background-color: #2c3e50;
+  width: 220px;
+  flex: 0 0 220px;
+  background-color: rgba(44, 62, 80, 0.95);
+  backdrop-filter: blur(10px);
   color: #ecf0f1;
   display: flex;
   flex-direction: column;
-  padding: 32px;
-  box-sizing: border-box;
-  box-shadow: 4px 0 10px rgba(0,0,0,0.05);
-  height: 100vh;
-}
-
-/* 3. 右侧主内容区 */
-.main-content {
-  width: 75vw; /* 使用 vw 单位，严格占据视口的 75% */
-  flex: 0 0 75vw;
-  padding: 40px;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto; /* 仅允许内容区域滚动 */
-  height: 100vh;
-  box-sizing: border-box;
-  background-color: #f4f7f6; /* 确保背景色填充 */
-}
-
-/* 头部样式 */
-.content-header h1 {
-  font-size: 28px;
-  margin: 0 0 8px 0;
-  color: #2c3e50;
-  font-weight: 700;
-}
-.content-header p {
-  font-size: 14px;
-  color: #7f8c8d;
-  margin: 0 0 24px 0;
-}
-
-/* 标签页样式 */
-.tool-tabs {
-  margin-bottom: 20px;
-  display: flex;
-  gap: 10px;
-}
-.tab-button {
-  padding: 8px 24px;
-  border: 1px solid #dfe6e9;
-  border-radius: 6px;
-  background-color: white;
-  cursor: pointer;
-  font-size: 14px;
-  color: #636e72;
-  transition: all 0.2s;
-  font-weight: 500;
-}
-.tab-button.active {
-  background-color: #3498db;
-  color: white;
-  border-color: #3498db;
-  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
-}
-
-/* 编码器面板布局 */
-.coder-panel {
-  flex-grow: 1;
-  display: flex;
-  gap: 24px;
-  align-items: stretch;
-  min-height: 0;
-  padding-bottom: 20px; /* 底部留一点空间 */
-}
-
-.input-section, .output-section {
-  flex: 1;
-  background-color: white;
-  border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  border: 1px solid #f1f2f6;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-/* 输入区样式 */
-.input-section h2, .output-section h2 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #2c3e50;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f2f6;
-}
-
-.textarea-wrapper {
-  flex-grow: 1;
-  margin-bottom: 16px;
-  position: relative;
-}
-
-.input-section textarea {
-  width: 100%;
-  height: 100%;
-  border: 1px solid #dfe6e9;
-  border-radius: 8px;
-  padding: 16px;
-  font-size: 15px;
-  resize: none;
-  outline: none;
-  transition: border-color 0.2s;
-  background-color: #fafafa;
   box-sizing: border-box;
-  font-family: inherit;
-  line-height: 1.5;
-}
-.input-section textarea:focus {
-  border-color: #3498db;
-  background-color: white;
 }
 
-.action-button {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: 8px;
-  background-color: #27ae60;
-  color: white;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
-  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.2);
-}
-.action-button:hover:not(:disabled) {
-  background-color: #2ecc71;
-  transform: translateY(-1px);
-}
-.action-button:disabled {
-  background-color: #95a5a6;
-  cursor: not-allowed;
-}
-
-/* 结果区样式 */
-.result-content {
-  flex-grow: 1;
-  position: relative;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.output-section .placeholder {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #b2bec3;
-}
-.placeholder-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
-
-.result-display {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.result-item h3 {
-  font-size: 13px;
-  color: #636e72;
-  margin: 0 0 6px 0;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.code-box {
-  background-color: #f8f9fa;
-  padding: 12px;
-  border-radius: 6px;
-  border: 1px solid #e9ecef;
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 13px;
-  color: #2d3436;
-  word-break: break-all;
-  white-space: pre-wrap;
-  line-height: 1.5;
-}
-
-/* 侧边栏组件样式 */
 .user-profile {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
   padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
+
 .avatar {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: linear-gradient(135deg, #3498db, #2980b9);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: bold;
-  margin: 0 auto 16px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  margin: 0 auto 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
-.username { font-size: 18px; font-weight: 600; }
+
+.username {
+  font-size: 16px;
+  font-weight: 600;
+}
+
 .navigation {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -366,43 +442,342 @@ body, html {
   color: #bdc3c7;
   text-decoration: none;
   transition: all 0.2s;
-  font-size: 15px;
+  font-size: 14px;
 }
+
 .nav-item:hover {
-  background-color: rgba(255,255,255,0.05);
+  background-color: rgba(255, 255, 255, 0.05);
   color: white;
   transform: translateX(4px);
 }
+
 .nav-item.active {
   background-color: #3498db;
   color: white;
   font-weight: 500;
-  box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
 }
+
 .logout-button {
   width: 100%;
   padding: 12px;
-  border: none;
   border-radius: 8px;
   background-color: rgba(231, 76, 60, 0.1);
   color: #e74c3c;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
   border: 1px solid rgba(231, 76, 60, 0.2);
 }
-.logout-button:hover { background-color: #e74c3c; color: white; }
-.loading-spinner {
-  margin: 40px auto;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #3498db;
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  animation: spin 1s linear infinite;
+
+.logout-button:hover {
+  background-color: #e74c3c;
+  color: white;
 }
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+
+.main-content {
+  flex: 1;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: rgba(244, 247, 246, 0.9);
+  backdrop-filter: blur(10px);
+}
+
+.content-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.content-header h1 {
+  font-size: 28px;
+  margin: 0 0 8px 0;
+  color: #2c3e50;
+  font-weight: 700;
+}
+
+.content-header p {
+  font-size: 14px;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.view-content {
+  display: grid;
+  gap: 24px;
+  flex: 1;
+  min-height: 0;
+}
+
+.two-column {
+  grid-template-columns: 1fr 1fr;
+}
+
+.tree-view {
+  grid-template-columns: 280px 1fr;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.card h3 {
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f1f2f6;
+  color: #2c3e50;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.card label {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 8px;
+  display: block;
+  font-size: 14px;
+}
+
+.input-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.textarea-wrapper {
+  flex: 1;
+  min-height: 150px;
+  margin-bottom: 16px;
+}
+
+.input-card textarea,
+.textarea-wrapper textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  border-radius: 8px;
+  border: 1px solid #dfe6e9;
+  padding: 12px;
+  font-size: 14px;
+  resize: none;
+  background: #fafafa;
+  transition: border 0.3s, background 0.3s;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.input-card textarea:focus,
+.textarea-wrapper textarea:focus {
+  outline: none;
+  border-color: #3498db;
+  background: white;
+}
+
+.code-input {
+  font-family: 'Consolas', 'Monaco', monospace ! important;
+  font-size: 13px !important;
+}
+
+.mt-2 {
+  margin-top: 12px;
+}
+
+.mt-3 {
+  margin-top: 16px;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: auto;
+  font-size: 15px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.action-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+
+.action-btn:disabled {
+  background: #95a5a6;
+  cursor: not-allowed;
+}
+
+.result-card {
+  overflow-y: auto;
+}
+
+.result-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.label {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.copy-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.copy-btn:hover {
+  background-color: #2980b9;
+}
+
+.result-text-box,
+.readonly-text {
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  word-break: break-all;
+  color: #2d3436;
+  max-height: 120px;
+  overflow-y: auto;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  border: 1px solid #e9ecef;
+  line-height: 1.5;
+}
+
+.success-highlight {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+
+.data-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+}
+
+.data-item {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.data-item .char {
+  font-weight: bold;
+  color: #3498db;
+}
+
+.data-item .value {
+  color: #e74c3c;
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+.stats-box {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  color: #636e72;
+  font-size: 13px;
+}
+
+.stat-value {
+  color: #2c3e50;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #b2bec3;
+  text-align: center;
+  min-height: 200px;
+}
+
+.placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.graph-card {
+  min-height: 400px;
+}
+
+.graph-container {
+  flex: 1;
+  min-height: 350px;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e9ecef;
+}
+
+@media (max-width: 1024px) {
+  .two-column,
+  .tree-view {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    width: 180px;
+    flex: 0 0 180px;
+    padding: 16px;
+  }
+  .main-content {
+    padding: 20px;
+  }
 }
 </style>

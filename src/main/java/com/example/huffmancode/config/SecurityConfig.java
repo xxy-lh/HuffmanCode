@@ -1,14 +1,14 @@
-package com.example.huffmancode.config;
+package com.example.huffmancode. config;
 
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.context. annotation.Bean;
+import org. springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation. web.builders.HttpSecurity;
+import org.springframework.security.config.annotation. web.configuration.EnableWebSecurity;
+import org.springframework. security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework. security.crypto.password.PasswordEncoder;
+import org.springframework.security.web. SecurityFilterChain;
 
-import static org.springframework.security.config.Customizer.withDefaults;
+import static org.springframework.security.config. Customizer.withDefaults;
 
 @Configuration
 @EnableWebSecurity
@@ -17,13 +17,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .cors(withDefaults()) // <--- 1. 添加这一行来启用CORS
+                .cors(withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers("/api/auth/**", "/ws/**").permitAll()
-                        .anyRequest().authenticated()
+                        // 允许这些路径无需认证
+                        .requestMatchers("/api/auth/**", "/ws/**", "/api/huffman/**").permitAll()
+                        . anyRequest().authenticated()
                 )
-                .httpBasic(withDefaults());
+                . httpBasic(withDefaults());
         return http.build();
     }
 
