@@ -121,7 +121,7 @@
               <textarea v-model="textToEncode" placeholder="在此输入要编码的文本..."></textarea>
             </div>
             <button @click="handleEncode" :disabled="isLoading" class="action-button">
-              {{ isLoading ?  '编码中...' : '执行编码' }}
+              {{ isLoading ? '编码中...' : '执行编码' }}
             </button>
           </div>
           <div class="output-section">
@@ -180,7 +180,6 @@
             <div class="textarea-wrapper">
               <textarea v-model="textToDecode" placeholder="在此输入要解码的二进制字符串..."></textarea>
             </div>
-            <!-- 修复：将 textarea 和 button 分开，并让 textarea 自动填充空间 -->
             <div class="codes-input">
               <h3>哈夫曼编码表 (JSON格式)</h3>
               <textarea v-model="codesForDecode" placeholder='例如：&#10;{&#10;  "a": "01",&#10;  "b": "11",&#10;  "c": "001"&#10;}'></textarea>
@@ -216,15 +215,16 @@
         <div v-if="activeTab === 'tree'" class="tree-panel">
           <div class="tree-toolbar">
             <span>使用鼠标滚轮缩放，拖动平移</span>
-            <div v-if="renderError">
-              <button @click="retryRender" class="retry-btn">重试</button>
-            </div>
+            <button @click="retryRender" class="retry-btn">重试</button>
+            <button @click="zoomIn" class="zoom-btn">放大</button>
+            <button @click="zoomOut" class="zoom-btn">缩小</button>
+            <button @click="resetZoom" class="zoom-btn">重置</button>
           </div>
           <div class="tree-container">
             <!-- 加载状态 -->
             <div v-if="isTreeLoading" class="tree-loading">
               <div class="loading-spinner"></div>
-              <p>正在初始化图形引擎...</p>
+              <p>正在渲染哈夫曼树...</p>
             </div>
             <!-- 错误状态 -->
             <div v-else-if="renderError" class="error-msg">
@@ -232,7 +232,22 @@
               <p>{{ renderError }}</p>
             </div>
             <!-- 图形容器 -->
-            <div ref="graphContainer" class="graph-container"></div>
+            <div
+              ref="graphContainer"
+              class="graph-container"
+              @wheel.prevent="handleWheel"
+              @mousedown="startDrag"
+              @mousemove="onDrag"
+              @mouseup="endDrag"
+              @mouseleave="endDrag"
+            >
+              <div
+                ref="svgWrapper"
+                class="svg-wrapper"
+                :style="transformStyle"
+                v-html="svgContent"
+              ></div>
+            </div>
           </div>
         </div>
       </div>
@@ -241,7 +256,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { Client } from '@stomp/stompjs';
@@ -278,15 +293,32 @@ const historyList = ref([]);
 
 // --- 树可视化 ---
 const graphContainer = ref(null);
+const svgWrapper = ref(null);
 const renderError = ref('');
 const isTreeLoading = ref(false);
+const svgContent = ref('');
 
-// Graphviz 实例缓存
-let graphvizModule = null;
-let d3Module = null;
+// 缩放和拖拽状态
+const scale = ref(1);
+const translateX = ref(0);
+const translateY = ref(0);
+const isDragging = ref(false);
+const dragStartX = ref(0);
+const dragStartY = ref(0);
+const lastTranslateX = ref(0);
+const lastTranslateY = ref(0);
+
+// Viz.js 实例
+let vizInstance = null;
+
+// 计算变换样式
+const transformStyle = computed(() => ({
+  transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
+  transformOrigin: 'center center'
+}));
 
 // --- 生命周期钩子 ---
-onMounted(() => {
+onMounted(async () => {
   const storedUsername = localStorage.getItem('username');
   if (storedUsername) {
     username.value = storedUsername;
@@ -296,6 +328,9 @@ onMounted(() => {
   if (savedHistory) {
     historyList.value = JSON.parse(savedHistory);
   }
+
+  // 预加载 Viz.js
+  await initViz();
 });
 
 onUnmounted(() => {
@@ -303,6 +338,17 @@ onUnmounted(() => {
     stompClient.deactivate();
   }
 });
+
+// 初始化 Viz.js
+const initViz = async () => {
+  try {
+    const { instance } = await import('@viz-js/viz');
+    vizInstance = await instance();
+    console.log('Viz.js 初始化成功');
+  } catch (error) {
+    console.error('Viz.js 初始化失败:', error);
+  }
+};
 
 // 监听标签页切换
 watch([activeTab, encodeResult], async ([newTab, newResult]) => {
@@ -313,13 +359,99 @@ watch([activeTab, encodeResult], async ([newTab, newResult]) => {
   }
 });
 
+// --- 树渲染方法 (使用 Viz.js) ---
+const renderTree = async (dotString) => {
+  if (!dotString) {
+    renderError.value = '没有可渲染的数据';
+    return;
+  }
+
+  isTreeLoading.value = true;
+  renderError.value = '';
+  svgContent.value = '';
+
+  try {
+    // 确保 Viz.js 已初始化
+    if (!vizInstance) {
+      await initViz();
+    }
+
+    if (! vizInstance) {
+      throw new Error('Viz.js 初始化失败，请刷新页面重试');
+    }
+
+    // 渲染 DOT 为 SVG
+    const svg = vizInstance.renderSVGElement(dotString);
+
+    // 修改 SVG 样式以适应深色主题
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '100%');
+    svg.style.maxWidth = '100%';
+    svg.style.maxHeight = '100%';
+
+    // 将 SVG 转换为字符串
+    svgContent.value = svg.outerHTML;
+
+    // 重置缩放和位置
+    resetZoom();
+
+    console.log('哈夫曼树渲染成功');
+  } catch (error) {
+    console.error('渲染失败:', error);
+    renderError.value = error.message || '渲染失败，请重试';
+  } finally {
+    isTreeLoading.value = false;
+  }
+};
+
 const retryRender = () => {
   if (encodeResult.value && encodeResult.value.treeDot) {
     renderTree(encodeResult.value.treeDot);
   } else {
     alert("没有可渲染的数据，请先进行编码");
   }
-}
+};
+
+// --- 缩放和拖拽方法 ---
+const handleWheel = (event) => {
+  const delta = event.deltaY > 0 ? -0.1 : 0.1;
+  const newScale = Math.max(0.1, Math.min(3, scale.value + delta));
+  scale.value = newScale;
+};
+
+const zoomIn = () => {
+  scale.value = Math.min(3, scale.value + 0.2);
+};
+
+const zoomOut = () => {
+  scale.value = Math.max(0.1, scale.value - 0.2);
+};
+
+const resetZoom = () => {
+  scale.value = 1;
+  translateX.value = 0;
+  translateY.value = 0;
+};
+
+const startDrag = (event) => {
+  isDragging.value = true;
+  dragStartX.value = event.clientX;
+  dragStartY.value = event.clientY;
+  lastTranslateX.value = translateX.value;
+  lastTranslateY.value = translateY.value;
+};
+
+const onDrag = (event) => {
+  if (!isDragging.value) return;
+  const deltaX = event.clientX - dragStartX.value;
+  const deltaY = event.clientY - dragStartY.value;
+  translateX.value = lastTranslateX.value + deltaX;
+  translateY.value = lastTranslateY.value + deltaY;
+};
+
+const endDrag = () => {
+  isDragging.value = false;
+};
 
 // --- 复制到剪贴板方法 ---
 const copyToClipboard = async (text) => {
@@ -486,69 +618,10 @@ const formatFrequencies = (frequencies) => {
 };
 
 const formatCodes = (codes) => {
-  if (! codes) return '';
+  if (!codes) return '';
   return Object.entries(codes)
     .map(([char, code]) => `'${char}': "${code}"`)
     .join(',\n');
-};
-
-// --- 树可视化方法 (修复版 - 使用动态导入和正确初始化) ---
-const renderTree = async (dotString) => {
-  if (!graphContainer.value) {
-    console.warn("渲染容器未找到");
-    return;
-  }
-
-  renderError.value = '';
-  isTreeLoading.value = true;
-
-  try {
-    // 动态导入模块（只在需要时加载）
-    if (! d3Module) {
-      d3Module = await import('d3');
-    }
-    if (!graphvizModule) {
-      const graphvizLib = await import('d3-graphviz');
-      graphvizModule = graphvizLib.graphviz;
-    }
-
-    await nextTick();
-
-    // 清空容器
-    d3Module.select(graphContainer.value).selectAll('*').remove();
-
-    // 创建 graphviz 实例
-    const graph = graphvizModule(graphContainer.value, {
-      useWorker: false,  // 禁用 Worker，避免 WASM 加载问题
-      zoom: true         // 启用缩放
-    });
-
-    // 设置渲染完成和错误的回调
-    graph
-      .width(graphContainer.value.clientWidth || 800)
-      .height(graphContainer.value.clientHeight || 500)
-      .fit(true)
-      .scale(0.8)
-      .on('initEnd', () => {
-        console.log('Graphviz 初始化完成');
-        isTreeLoading.value = false;
-      })
-      .on('renderEnd', () => {
-        console.log('渲染完成');
-        isTreeLoading.value = false;
-      })
-      .on('error', (err) => {
-        console.error('Graphviz 渲染错误:', err);
-        renderError.value = String(err);
-        isTreeLoading.value = false;
-      })
-      .renderDot(dotString);
-
-  } catch (error) {
-    console.error('启动渲染失败:', error);
-    renderError.value = '启动渲染失败: ' + (error.message || String(error));
-    isTreeLoading.value = false;
-  }
 };
 
 // --- 登出方法 ---
@@ -737,7 +810,7 @@ body, html {
   font-weight: 500;
 }
 
-.tab-button:hover {
+.tab-button:hover:not(:disabled) {
   border-color: #667eea;
   color: #667eea;
 }
@@ -836,7 +909,6 @@ body, html {
   border-color: #667eea;
 }
 
-/* 修复：解码页面的输入布局 */
 .codes-input {
   flex-grow: 1;
   display: flex;
@@ -962,6 +1034,7 @@ body, html {
   background-color: #2c3e50;
   color: #667eea;
 }
+
 .copy-btn.primary:hover {
   background-color: #34495e;
 }
@@ -1042,29 +1115,32 @@ body, html {
   font-size: 12px;
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
-.retry-btn {
+.retry-btn, .zoom-btn {
   background: transparent;
   border: 1px solid #444;
   color: #888;
   cursor: pointer;
-  padding: 2px 8px;
+  padding: 4px 12px;
   border-radius: 4px;
   font-size: 12px;
+  transition: all 0.2s;
 }
-.retry-btn:hover {
+
+.retry-btn:hover, .zoom-btn:hover {
   color: white;
-  border-color: #666;
+  border-color: #667eea;
+  background-color: rgba(102, 126, 234, 0.1);
 }
 
 .tree-container {
   flex-grow: 1;
   background-color: #242444;
   border-radius: 16px;
-  padding: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1077,6 +1153,21 @@ body, html {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.graph-container:active {
+  cursor: grabbing;
+}
+
+.svg-wrapper {
+  transition: transform 0.1s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 树加载状态 */
@@ -1086,6 +1177,10 @@ body, html {
   align-items: center;
   justify-content: center;
   color: #888;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .tree-loading p {
@@ -1103,8 +1198,13 @@ body, html {
   text-align: left;
   word-break: break-word;
 }
+
 .error-msg p {
-  margin: 0;
+  margin: 0 0 8px 0;
+}
+
+.error-msg p:last-child {
+  margin-bottom: 0;
 }
 
 /* 发送页面样式 */
@@ -1290,29 +1390,33 @@ body, html {
   100% { transform: rotate(360deg); }
 }
 
-/* SVG 样式（用于 graphviz 渲染的图形）*/
-.graph-container :deep(svg) {
-  width: 100%;
-  height: 100%;
+/* SVG 深色主题样式 */
+.svg-wrapper :deep(svg) {
   max-width: 100%;
   max-height: 100%;
 }
 
-.graph-container :deep(.node text) {
-  fill: #e0e0e0;
+.svg-wrapper :deep(.node text) {
+  fill: #e0e0e0 !important;
 }
 
-.graph-container :deep(.edge text) {
-  fill: #888;
+.svg-wrapper :deep(.edge text) {
+  fill: #aaa !important;
 }
 
-.graph-container :deep(.node polygon),
-.graph-container :deep(.node ellipse) {
-  fill: #2a2a4a;
-  stroke: #667eea;
+.svg-wrapper :deep(.node polygon),
+.svg-wrapper :deep(.node ellipse),
+.svg-wrapper :deep(.node path) {
+  fill: #2a2a4a !important;
+  stroke: #667eea !important;
 }
 
-.graph-container :deep(.edge path) {
-  stroke: #555;
+.svg-wrapper :deep(.edge path) {
+  stroke: #888 !important;
+}
+
+.svg-wrapper :deep(.graph > polygon) {
+  fill: transparent !important;
+  stroke: none !important;
 }
 </style>
