@@ -42,7 +42,7 @@
           <div class="connection-status">
             <div :class="['status-dot', { connected: isConnected }]"></div>
             <span>{{ isConnected ? '已连接' : '未连接' }}</span>
-            <button v-if="!isConnected" @click="connectWebSocket" class="connect-btn">连接</button>
+            <button v-if="! isConnected" @click="connectWebSocket" class="connect-btn">连接</button>
             <button v-else @click="disconnectWebSocket" class="disconnect-btn">断开</button>
           </div>
           <div class="message-section">
@@ -55,7 +55,7 @@
                   发送前进行哈夫曼编码
                 </label>
               </div>
-              <button @click="sendMessage" :disabled="!isConnected || !messageToSend.trim()" class="action-button">发送</button>
+              <button @click="sendMessage" :disabled="!isConnected || ! messageToSend.trim()" class="action-button">发送</button>
             </div>
             <div class="received-area">
               <h2>接收到的消息</h2>
@@ -121,13 +121,13 @@
               <textarea v-model="textToEncode" placeholder="在此输入要编码的文本..."></textarea>
             </div>
             <button @click="handleEncode" :disabled="isLoading" class="action-button">
-              {{ isLoading ? '编码中...' : '执行编码' }}
+              {{ isLoading ?  '编码中...' : '执行编码' }}
             </button>
           </div>
           <div class="output-section">
             <h2>输出</h2>
             <div v-if="isLoading" class="loading-spinner"></div>
-            <div v-else-if="!encodeResult" class="placeholder">
+            <div v-else-if="! encodeResult" class="placeholder">
               <span class="placeholder-icon">📊</span>
               <span>等待编码结果...</span>
             </div>
@@ -221,10 +221,17 @@
             </div>
           </div>
           <div class="tree-container">
-            <div v-if="renderError" class="error-msg">
+            <!-- 加载状态 -->
+            <div v-if="isTreeLoading" class="tree-loading">
+              <div class="loading-spinner"></div>
+              <p>正在初始化图形引擎...</p>
+            </div>
+            <!-- 错误状态 -->
+            <div v-else-if="renderError" class="error-msg">
               <p><strong>图形渲染遇到问题:</strong></p>
               <p>{{ renderError }}</p>
             </div>
+            <!-- 图形容器 -->
             <div ref="graphContainer" class="graph-container"></div>
           </div>
         </div>
@@ -239,8 +246,6 @@ import { useRouter } from 'vue-router';
 import axios from 'axios';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
-import { graphviz } from 'd3-graphviz';
-import * as d3 from 'd3';
 
 const router = useRouter();
 
@@ -274,6 +279,11 @@ const historyList = ref([]);
 // --- 树可视化 ---
 const graphContainer = ref(null);
 const renderError = ref('');
+const isTreeLoading = ref(false);
+
+// Graphviz 实例缓存
+let graphvizModule = null;
+let d3Module = null;
 
 // --- 生命周期钩子 ---
 onMounted(() => {
@@ -416,7 +426,7 @@ const disconnectWebSocket = () => {
 };
 
 const sendMessage = async () => {
-  if (!messageToSend.value.trim() || !isConnected.value) return;
+  if (! messageToSend.value.trim() || !isConnected.value) return;
 
   let messageContent = messageToSend.value;
   let originalMessage = messageToSend.value;
@@ -450,7 +460,7 @@ const addToHistory = (type, original, processed) => {
   const item = {
     type,
     original: original.substring(0, 100) + (original.length > 100 ? '...' : ''),
-    encoded: processed.substring(0, 100) + (processed.length > 100 ? '...' : ''),
+    encoded: processed.substring(0, 100) + (processed.length > 100 ?  '...' : ''),
     time: new Date().toLocaleString()
   };
   historyList.value.unshift(item);
@@ -476,40 +486,69 @@ const formatFrequencies = (frequencies) => {
 };
 
 const formatCodes = (codes) => {
-  if (!codes) return '';
+  if (! codes) return '';
   return Object.entries(codes)
     .map(([char, code]) => `'${char}': "${code}"`)
     .join(',\n');
 };
 
-// --- 树可视化方法 (修复版) ---
-const renderTree = (dotString) => {
+// --- 树可视化方法 (修复版 - 使用动态导入和正确初始化) ---
+const renderTree = async (dotString) => {
   if (!graphContainer.value) {
     console.warn("渲染容器未找到");
     return;
   }
+
   renderError.value = '';
+  isTreeLoading.value = true;
 
-  nextTick(() => {
-    try {
-      d3.select(graphContainer.value).selectAll('*').remove();
-      const graph = graphviz(graphContainer.value, {
-        useWorker: false // 在某些复杂环境中禁用 Worker 可能更稳定
-      });
-
-      graph
-        .on('initEnd', () => { console.log('Graphviz a初始化完成'); })
-        .on('error', (err) => {
-          console.error('Graphviz 渲染错误:', err);
-          renderError.value = String(err);
-        })
-        .renderDot(dotString);
-
-    } catch (error) {
-      console.error('启动渲染失败:', error);
-      renderError.value = '启动渲染失败: ' + (error.message || String(error));
+  try {
+    // 动态导入模块（只在需要时加载）
+    if (! d3Module) {
+      d3Module = await import('d3');
     }
-  });
+    if (!graphvizModule) {
+      const graphvizLib = await import('d3-graphviz');
+      graphvizModule = graphvizLib.graphviz;
+    }
+
+    await nextTick();
+
+    // 清空容器
+    d3Module.select(graphContainer.value).selectAll('*').remove();
+
+    // 创建 graphviz 实例
+    const graph = graphvizModule(graphContainer.value, {
+      useWorker: false,  // 禁用 Worker，避免 WASM 加载问题
+      zoom: true         // 启用缩放
+    });
+
+    // 设置渲染完成和错误的回调
+    graph
+      .width(graphContainer.value.clientWidth || 800)
+      .height(graphContainer.value.clientHeight || 500)
+      .fit(true)
+      .scale(0.8)
+      .on('initEnd', () => {
+        console.log('Graphviz 初始化完成');
+        isTreeLoading.value = false;
+      })
+      .on('renderEnd', () => {
+        console.log('渲染完成');
+        isTreeLoading.value = false;
+      })
+      .on('error', (err) => {
+        console.error('Graphviz 渲染错误:', err);
+        renderError.value = String(err);
+        isTreeLoading.value = false;
+      })
+      .renderDot(dotString);
+
+  } catch (error) {
+    console.error('启动渲染失败:', error);
+    renderError.value = '启动渲染失败: ' + (error.message || String(error));
+    isTreeLoading.value = false;
+  }
 };
 
 // --- 登出方法 ---
@@ -538,7 +577,7 @@ body, html {
 </style>
 
 <style scoped>
-/* 1. 主容器布局 */
+/* 1.主容器布局 */
 .main-app-container {
   width: 100vw;
   height: 100vh;
@@ -635,7 +674,7 @@ body, html {
   color: white;
 }
 
-/* 3. 右侧主内容区 */
+/* 3.右侧主内容区 */
 .main-content {
   flex: 1;
   display: flex;
@@ -712,6 +751,11 @@ body, html {
 
 .tab-button.tree-tab {
   padding: 12px 24px;
+}
+
+.tab-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* 编码器/发送/历史 面板布局 */
@@ -794,11 +838,11 @@ body, html {
 
 /* 修复：解码页面的输入布局 */
 .codes-input {
-  flex-grow: 1; /* 让此区域填充空间 */
+  flex-grow: 1;
   display: flex;
   flex-direction: column;
   margin-bottom: 16px;
-  min-height: 120px; /* 保证最小高度 */
+  min-height: 120px;
 }
 
 .codes-input h3 {
@@ -810,7 +854,7 @@ body, html {
 
 .codes-input textarea {
   min-height: 80px;
-  flex-grow: 1; /* 允许文本域扩展 */
+  flex-grow: 1;
 }
 
 .action-button {
@@ -1035,6 +1079,20 @@ body, html {
   overflow: hidden;
 }
 
+/* 树加载状态 */
+.tree-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+}
+
+.tree-loading p {
+  margin-top: 16px;
+  font-size: 14px;
+}
+
 .error-msg {
   color: #e74c3c;
   background: rgba(231, 76, 60, 0.1);
@@ -1230,5 +1288,31 @@ body, html {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+/* SVG 样式（用于 graphviz 渲染的图形）*/
+.graph-container :deep(svg) {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.graph-container :deep(.node text) {
+  fill: #e0e0e0;
+}
+
+.graph-container :deep(.edge text) {
+  fill: #888;
+}
+
+.graph-container :deep(.node polygon),
+.graph-container :deep(.node ellipse) {
+  fill: #2a2a4a;
+  stroke: #667eea;
+}
+
+.graph-container :deep(.edge path) {
+  stroke: #555;
 }
 </style>
