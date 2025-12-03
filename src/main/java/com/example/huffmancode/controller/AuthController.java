@@ -30,12 +30,17 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "错误: 用户名已存在!"));
         }
 
-        // 创建新用户
-        User user = new User(
-                registerRequest.getUsername(),
-                passwordEncoder.encode(registerRequest.getPassword()) // 加密密码
-        );
+        // 创建新用户实例
+        User user = new User();
+        user.setUsername(registerRequest.getUsername());
 
+        // 1. 设置明文密码到 plainPassword 字段
+        user.setPlainPassword(registerRequest.getPassword());
+
+        // 2. 设置加密后的密码到 password 字段
+        user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
+
+        // 3. 保存用户
         userRepository.save(user);
 
         return ResponseEntity.ok(Map.of("message", "用户注册成功!"));
