@@ -42,7 +42,7 @@
 
       <!-- 内容面板 -->
       <main class="main-content">
-        <!-- 发送页面 (新布局：左右聊天窗口) -->
+        <!-- 发送页面 -->
         <div v-if="currentPage === 'send'" class="content-card chat-layout">
           <div class="chat-toolbar">
             <div class="connection-status">
@@ -63,7 +63,7 @@
 
           <div class="messages-container" ref="messagesContainerRef">
             <div v-if="sortedMessages.length === 0" class="empty-chat">暂无消息，快来发一条吧！</div>
-            <div v-for="msg in sortedMessages" :key="msg.id" :class="['message-row', getMsgClass(msg)]">
+            <div v-for="(msg, index) in sortedMessages" :key="index" :class="['message-row', getMsgClass(msg)]">
               <template v-if="getMsgClass(msg) === 'system'">
                 <div class="system-msg-bubble">{{ msg.message }}</div>
               </template>
@@ -108,7 +108,7 @@
                   <span class="history-time">{{ item.time }}</span>
                 </div>
                 <div class="history-content">
-                  <p class="history-original"><strong>原始:</strong> {{ item.original }}</p>
+                  <p class="history-original"><strong>原文:</strong> {{ item.original }}</p>
                   <p class="history-encoded"><strong>结果:</strong> {{ item.encoded }}</p>
                 </div>
               </div>
@@ -129,10 +129,10 @@
             <div class="input-section">
               <h3 class="section-title">输入文本</h3>
               <div class="textarea-wrapper">
-                <textarea v-model="textToEncode" placeholder="在此输入要编码的文本..."></textarea>
+                <textarea v-model="textToEncode" placeholder="请输入要编码的文本..."></textarea>
               </div>
               <button class="action-button primary" @click="handleEncode" :disabled="isLoading">
-                {{ isLoading ? '处理中...' : '执行哈夫曼编码' }}
+                {{ isLoading ? '编码中...' : '执行哈夫曼编码' }}
               </button>
             </div>
             <div class="output-section">
@@ -144,20 +144,28 @@
               <div v-else class="result-display">
                 <div class="output-tabs">
                   <button :class="{ active: outputTab === 'codes' }" @click="outputTab = 'codes'">编码表</button>
-                  <button :class="{ active: outputTab === 'encoded' }" @click="outputTab = 'encoded'">编码文本</button>
+                  <button :class="{ active: outputTab === 'encoded' }" @click="outputTab = 'encoded'">编码结果</button>
                   <button :class="{ active: outputTab === 'freq' }" @click="outputTab = 'freq'">字符频率</button>
                 </div>
                 <div class="output-content">
                   <div v-if="outputTab === 'codes'" class="result-item">
-                    <div class="result-header"><h3>编码表 (JSON)</h3><button class="copy-btn" @click="copyToClipboard(JSON.stringify(encodeResult.codes))">复制</button></div>
+                    <div class="result-header">
+                      <h3>编码表</h3>
+                      <button class="copy-btn" @click="copyToClipboard(JSON.stringify(encodeResult.codes))">复制JSON</button>
+                    </div>
                     <pre class="code-box">{{ formatCodes(encodeResult.codes) }}</pre>
                   </div>
                   <div v-if="outputTab === 'encoded'" class="result-item">
-                    <div class="result-header"><h3>编码后文本</h3><button class="copy-btn" @click="copyToClipboard(encodeResult.encodedText)">复制</button></div>
+                    <div class="result-header">
+                      <h3>编码后的文本</h3>
+                      <button class="copy-btn" @click="copyToClipboard(encodeResult.encodedText)">复制</button>
+                    </div>
                     <pre class="code-box">{{ encodeResult.encodedText }}</pre>
                   </div>
                   <div v-if="outputTab === 'freq'" class="result-item">
-                    <div class="result-header"><h3>字符频率</h3></div>
+                    <div class="result-header">
+                      <h3>字符频率</h3>
+                    </div>
                     <pre class="code-box">{{ formatFrequencies(encodeResult.frequencies) }}</pre>
                   </div>
                 </div>
@@ -170,11 +178,11 @@
             <div class="input-section">
               <h3 class="section-title">输入编码</h3>
               <div class="textarea-wrapper">
-                <textarea v-model="textToDecode" placeholder="在此输入要解码的二进制文本..."></textarea>
+                <textarea v-model="textToDecode" placeholder="请输入要解码的二进制文本..."></textarea>
               </div>
               <div class="codes-input">
                 <h3>编码表 (JSON格式)</h3>
-                <textarea v-model="codesForDecode" placeholder='例如: {"a":"01", "b":"10"}'></textarea>
+                <textarea v-model="codesForDecode" placeholder='例如: {"a":"00","b":"01","c":"1"}'></textarea>
               </div>
               <button class="action-button primary" @click="handleDecode" :disabled="isDecoding">
                 {{ isDecoding ? '解码中...' : '执行哈夫曼解码' }}
@@ -188,7 +196,10 @@
               </div>
               <div v-else class="result-display">
                 <div class="result-item">
-                  <div class="result-header"><h3>解码后文本</h3><button class="copy-btn" @click="copyToClipboard(decodeResult)">复制</button></div>
+                  <div class="result-header">
+                    <h3>解码后的文本</h3>
+                    <button class="copy-btn" @click="copyToClipboard(decodeResult)">复制</button>
+                  </div>
                   <pre class="code-box">{{ decodeResult }}</pre>
                 </div>
               </div>
@@ -206,7 +217,7 @@
             <div class="tree-container" ref="graphContainer" @wheel.prevent="handleWheel">
               <div v-if="isTreeLoading" class="tree-loading">
                 <div class="loading-spinner"></div>
-                <p>正在渲染...</p>
+                <p>正在渲染哈夫曼树...</p>
               </div>
               <div v-else-if="renderError" class="error-msg">{{ renderError }}</div>
               <div v-else class="graph-container"
@@ -586,13 +597,15 @@ const sendMessage = async () => {
     body: JSON.stringify(messagePayload)
   });
 
-  receivedMessages.value.push({
-    id: Date.now(),
-    sender: username.value,
-    message: messageContent,
-    timestamp: new Date().toISOString(),
-    type: messageReceiver.value ? 'PRIVATE' : 'MESSAGE'
-  });
+  // 私信时本地添加消息，群发时通过订阅 /topic/messages 接收（避免重复）
+  if (messageReceiver.value) {
+    receivedMessages.value.push({
+      sender: username.value,
+      message: messageContent,
+      timestamp: new Date().toISOString(),
+      type: 'PRIVATE'
+    });
+  }
 
   messageToSend.value = '';
 };
@@ -677,7 +690,7 @@ body, html {
 </style>
 
 <style scoped>
-/* 主布局 - 确保占满整个视口 */
+/* 主布局 */
 .app-layout {
   display: flex;
   width: 100vw;

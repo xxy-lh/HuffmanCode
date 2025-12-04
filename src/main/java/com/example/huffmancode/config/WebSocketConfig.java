@@ -12,11 +12,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        // 启用简单消息代理，客户端订阅的目的地前缀
         config.enableSimpleBroker("/topic", "/queue");
-        // 客户端发送消息的目的地前缀
         config.setApplicationDestinationPrefixes("/app");
-        // 用户专属消息前缀
         config.setUserDestinationPrefix("/user");
     }
 
