@@ -10,20 +10,20 @@
         <a href="#"
            :class="['nav-item', { active: currentPage === 'huffman' }]"
            @click.prevent="currentPage = 'huffman'">
-          <span class="nav-icon">🔐</span>
-          <span>编码译码</span>
+          <span class="nav-icon">📝</span>
+          <span>编码/解码</span>
         </a>
         <a href="#"
            :class="['nav-item', { active: currentPage === 'send' }]"
            @click.prevent="switchToSendMessage">
-          <span class="nav-icon">📤</span>
+          <span class="nav-icon">💬</span>
           <span>消息通信</span>
         </a>
         <a href="#"
            :class="['nav-item', { active: currentPage === 'history' }]"
            @click.prevent="currentPage = 'history'">
           <span class="nav-icon">📋</span>
-          <span>操作历史</span>
+          <span>历史记录</span>
         </a>
       </nav>
     </aside>
@@ -32,15 +32,11 @@
     <div class="main-wrapper">
       <!-- 顶部信息栏 -->
       <header class="top-bar">
-        <h2 class="page-title">
-          {{ pageTitle }}
-        </h2>
+        <h2 class="page-title">{{ pageTitle }}</h2>
         <div class="user-info">
           <div class="avatar">{{ username.charAt(0).toUpperCase() }}</div>
           <span class="username">{{ username }}</span>
-          <button @click="logout" class="logout-button" title="退出登录">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-          </button>
+          <button class="logout-button" @click="logout" title="退出登录">🚪</button>
         </div>
       </header>
 
@@ -48,83 +44,61 @@
       <main class="main-content">
         <!-- 发送页面 (新布局：左右聊天窗口) -->
         <div v-if="currentPage === 'send'" class="content-card chat-layout">
-          <!-- 顶部工具栏 -->
           <div class="chat-toolbar">
             <div class="connection-status">
-              <span :class="['status-dot', { connected: isConnected }]"></span>
-              <!-- 修改点：增加 status-text 类以加深颜色 -->
+              <span class="status-dot" :class="{ connected: isConnected }"></span>
               <span class="status-text">{{ isConnected ? '已连接' : '未连接' }}</span>
-              <button v-if="!isConnected" @click="connectWebSocket" class="connect-btn small">连接</button>
-              <button v-else @click="disconnectWebSocket" class="disconnect-btn small">断开</button>
+              <button v-if="!isConnected" class="connect-btn small" @click="connectWebSocket">连接</button>
+              <button v-else class="disconnect-btn small" @click="disconnectWebSocket">断开</button>
             </div>
             <div class="receiver-input-wrapper">
-              <label for="receiver">接收者:</label>
-              <!-- 修改点：既可输入也可下拉选择 -->
-              <input type="text" id="receiver" v-model="messageReceiver" placeholder="公开消息留空" list="user-suggestions" autocomplete="off">
-              <datalist id="user-suggestions">
+              <label>接收者:</label>
+              <input type="text" v-model="messageReceiver" placeholder="留空则群发" list="user-list" />
+              <datalist id="user-list">
                 <option v-for="user in userList" :key="user.id" :value="user.username"></option>
               </datalist>
             </div>
-            <button @click="loadMessageHistory" class="history-btn small">加载历史</button>
+            <button class="history-btn small" @click="loadMessageHistory">加载历史</button>
           </div>
 
-          <!-- 消息列表 (重构为左右气泡布局) -->
           <div class="messages-container" ref="messagesContainerRef">
-            <div v-if="sortedMessages.length === 0" class="empty-chat">
-              暂无消息，开始聊天吧...
-            </div>
-
+            <div v-if="sortedMessages.length === 0" class="empty-chat">暂无消息，快来发一条吧！</div>
             <div v-for="msg in sortedMessages" :key="msg.id" :class="['message-row', getMsgClass(msg)]">
-
-              <!-- 系统消息 (居中) -->
-              <div v-if="getMsgClass(msg) === 'system'" class="system-msg-bubble">
-                {{ msg.message }}
-              </div>
-
-              <!-- 普通消息 (左右布局) -->
+              <template v-if="getMsgClass(msg) === 'system'">
+                <div class="system-msg-bubble">{{ msg.message }}</div>
+              </template>
               <template v-else>
-                <!-- 头像 -->
-                <div class="msg-avatar">
-                  {{ msg.sender.charAt(0).toUpperCase() }}
-                </div>
-
-                <!-- 气泡包裹 (包含昵称/时间和内容) -->
+                <div class="msg-avatar">{{ msg.sender ? msg.sender.charAt(0).toUpperCase() : '?' }}</div>
                 <div class="msg-bubble-wrapper">
                   <div class="msg-info">
-                    <span class="msg-name">{{ msg.sender }}</span>
+                    <span class="msg-sender">{{ msg.sender }}</span>
                     <span class="msg-time">{{ formatTime(msg.timestamp) }}</span>
                   </div>
-                  <div class="msg-content">
-                    {{ msg.message }}
-                  </div>
+                  <div class="msg-content">{{ msg.message }}</div>
                 </div>
               </template>
-
             </div>
           </div>
 
-          <!-- 底部输入区 -->
           <div class="chat-input-area">
+            <textarea v-model="messageToSend" placeholder="输入消息内容..." @keyup.enter.ctrl="sendMessage"></textarea>
             <div class="send-options">
-              <label>
-                <input type="checkbox" v-model="encodeBeforeSend">
-                <span>编码后发送</span>
-              </label>
+              <input type="checkbox" id="encodeCheck" v-model="encodeBeforeSend" />
+              <label for="encodeCheck">发送前编码</label>
             </div>
-            <textarea v-model="messageToSend" placeholder="输入消息..." @keydown.enter.prevent="sendMessage"></textarea>
-            <button @click="sendMessage" :disabled="!messageToSend.trim() || !isConnected" class="send-btn">发送</button>
+            <button class="send-btn" @click="sendMessage" :disabled="!isConnected || !messageToSend.trim()">发送</button>
           </div>
         </div>
 
         <!-- 历史页面 -->
         <div v-else-if="currentPage === 'history'" class="content-card">
           <div class="history-panel-header">
-            <h3 class="section-title">操作历史记录</h3>
-            <button @click="clearHistory" class="clear-btn">清空记录</button>
+            <h3 class="section-title" style="border: none; margin: 0; padding: 0;">操作历史</h3>
+            <button class="clear-btn" @click="clearHistory">清空历史</button>
           </div>
           <div class="history-panel">
             <div v-if="historyList.length === 0" class="placeholder">
-              <span class="placeholder-icon">🗂️</span>
+              <span class="placeholder-icon">📭</span>
               <p>暂无历史记录</p>
             </div>
             <div v-else class="history-list">
@@ -134,8 +108,8 @@
                   <span class="history-time">{{ item.time }}</span>
                 </div>
                 <div class="history-content">
-                  <p class="history-original"><strong>原文:</strong> {{ item.original }}</p>
-                  <p class="history-encoded"><strong>处理后:</strong> {{ item.encoded }}</p>
+                  <p class="history-original"><strong>原始:</strong> {{ item.original }}</p>
+                  <p class="history-encoded"><strong>结果:</strong> {{ item.encoded }}</p>
                 </div>
               </div>
             </div>
@@ -147,107 +121,100 @@
           <div class="tool-tabs">
             <button :class="['tab-button', { active: activeTab === 'encode' }]" @click="activeTab = 'encode'">编码</button>
             <button :class="['tab-button', { active: activeTab === 'decode' }]" @click="activeTab = 'decode'">解码</button>
-            <button :class="['tab-button', { active: activeTab === 'tree' }]" @click="activeTab = 'tree'" :disabled="!encodeResult || !encodeResult.treeDot">查看哈夫曼树</button>
+            <button :class="['tab-button', { active: activeTab === 'tree' }]" @click="activeTab = 'tree'" :disabled="!encodeResult">哈夫曼树</button>
           </div>
+
+          <!-- 编码面板 -->
           <div v-if="activeTab === 'encode'" class="coder-panel">
             <div class="input-section">
-              <h3 class="section-title">输入</h3>
+              <h3 class="section-title">输入文本</h3>
               <div class="textarea-wrapper">
                 <textarea v-model="textToEncode" placeholder="在此输入要编码的文本..."></textarea>
               </div>
-              <button @click="handleEncode" :disabled="isLoading" class="action-button primary">
-                {{ isLoading ? '编码中...' : '执行哈夫曼编码' }}
+              <button class="action-button primary" @click="handleEncode" :disabled="isLoading">
+                {{ isLoading ? '处理中...' : '执行哈夫曼编码' }}
               </button>
             </div>
             <div class="output-section">
-              <h3 class="section-title">输出</h3>
-              <div v-if="isLoading" class="placeholder"><div class="loading-spinner"></div></div>
-              <div v-else-if="!encodeResult" class="placeholder">
-                <span class="placeholder-icon">✨</span>
-                <p>编码结果将在此显示</p>
+              <h3 class="section-title">编码结果</h3>
+              <div v-if="!encodeResult" class="placeholder">
+                <span class="placeholder-icon">📊</span>
+                <p>编码结果将在这里显示</p>
               </div>
               <div v-else class="result-display">
                 <div class="output-tabs">
                   <button :class="{ active: outputTab === 'codes' }" @click="outputTab = 'codes'">编码表</button>
-                  <button :class="{ active: outputTab === 'freq' }" @click="outputTab = 'freq'">词频</button>
+                  <button :class="{ active: outputTab === 'encoded' }" @click="outputTab = 'encoded'">编码文本</button>
+                  <button :class="{ active: outputTab === 'freq' }" @click="outputTab = 'freq'">字符频率</button>
                 </div>
                 <div class="output-content">
                   <div v-if="outputTab === 'codes'" class="result-item">
-                    <div class="result-header">
-                      <h3>Huffman Codes (JSON)</h3>
-                      <button @click="copyToClipboard(JSON.stringify(encodeResult.codes, null, 2))" class="copy-btn">复制</button>
-                    </div>
+                    <div class="result-header"><h3>编码表 (JSON)</h3><button class="copy-btn" @click="copyToClipboard(JSON.stringify(encodeResult.codes))">复制</button></div>
                     <pre class="code-box">{{ formatCodes(encodeResult.codes) }}</pre>
                   </div>
+                  <div v-if="outputTab === 'encoded'" class="result-item">
+                    <div class="result-header"><h3>编码后文本</h3><button class="copy-btn" @click="copyToClipboard(encodeResult.encodedText)">复制</button></div>
+                    <pre class="code-box">{{ encodeResult.encodedText }}</pre>
+                  </div>
                   <div v-if="outputTab === 'freq'" class="result-item">
-                    <div class="result-header">
-                      <h3>Frequencies</h3>
-                      <button @click="copyToClipboard(formatFrequencies(encodeResult.frequencies))" class="copy-btn">复制</button>
-                    </div>
+                    <div class="result-header"><h3>字符频率</h3></div>
                     <pre class="code-box">{{ formatFrequencies(encodeResult.frequencies) }}</pre>
                   </div>
-                </div>
-                <div class="result-item">
-                  <div class="result-header">
-                    <h3>Encoded Text</h3>
-                    <button @click="copyToClipboard(encodeResult.encodedText)" class="copy-btn">复制</button>
-                  </div>
-                  <pre class="code-box">{{ encodeResult.encodedText }}</pre>
                 </div>
               </div>
             </div>
           </div>
+
+          <!-- 解码面板 -->
           <div v-if="activeTab === 'decode'" class="coder-panel">
             <div class="input-section">
-              <h3 class="section-title">输入</h3>
+              <h3 class="section-title">输入编码</h3>
               <div class="textarea-wrapper">
-                <textarea v-model="textToDecode" placeholder="在此输入要解码的文本..."></textarea>
+                <textarea v-model="textToDecode" placeholder="在此输入要解码的二进制文本..."></textarea>
               </div>
               <div class="codes-input">
-                <h3>编码表 (JSON)</h3>
-                <div class="textarea-wrapper">
-                  <textarea v-model="codesForDecode" placeholder='例如：&#10;{&#10;  "a": "01",&#10;  "b": "11",&#10;  "c": "001"&#10;}'></textarea>
-                </div>
+                <h3>编码表 (JSON格式)</h3>
+                <textarea v-model="codesForDecode" placeholder='例如: {"a":"01", "b":"10"}'></textarea>
               </div>
-              <button @click="handleDecode" :disabled="isDecoding" class="action-button primary">
+              <button class="action-button primary" @click="handleDecode" :disabled="isDecoding">
                 {{ isDecoding ? '解码中...' : '执行哈夫曼解码' }}
               </button>
             </div>
             <div class="output-section">
-              <h3 class="section-title">输出</h3>
-              <div v-if="isDecoding" class="placeholder"><div class="loading-spinner"></div></div>
-              <div v-else-if="!decodeResult" class="placeholder">
-                <span class="placeholder-icon">🔑</span>
-                <p>解码结果将在此显示</p>
+              <h3 class="section-title">解码结果</h3>
+              <div v-if="!decodeResult" class="placeholder">
+                <span class="placeholder-icon">📄</span>
+                <p>解码结果将在这里显示</p>
               </div>
               <div v-else class="result-display">
                 <div class="result-item">
-                  <div class="result-header">
-                    <h3>Decoded Text</h3>
-                    <button @click="copyToClipboard(decodeResult)" class="copy-btn">复制</button>
-                  </div>
+                  <div class="result-header"><h3>解码后文本</h3><button class="copy-btn" @click="copyToClipboard(decodeResult)">复制</button></div>
                   <pre class="code-box">{{ decodeResult }}</pre>
                 </div>
               </div>
             </div>
           </div>
 
+          <!-- 哈夫曼树面板 -->
           <div v-if="activeTab === 'tree'" class="tree-panel">
             <div class="tree-toolbar">
-              <button @click="retryRender" class="retry-btn">重试</button>
-              <button @click="zoomIn" class="zoom-btn">放大</button>
-              <button @click="zoomOut" class="zoom-btn">缩小</button>
-              <button @click="resetZoom" class="zoom-btn">重置</button>
-              <span>使用滚轮缩放, 拖动平移</span>
+              <button class="retry-btn" @click="retryRender">重新渲染</button>
+              <button class="zoom-btn" @click="zoomIn">放大</button>
+              <button class="zoom-btn" @click="zoomOut">缩小</button>
+              <button class="zoom-btn" @click="resetZoom">重置</button>
             </div>
-            <div class="tree-container" ref="graphContainer">
-              <div v-if="isTreeLoading" class="tree-loading"><div class="loading-spinner"></div><p>正在渲染哈夫曼树...</p></div>
-              <div v-else-if="renderError" class="error-msg">
-                <p><strong>渲染失败:</strong> {{ renderError }}</p>
-                <button @click="retryRender" class="retry-btn">点击重试</button>
+            <div class="tree-container" ref="graphContainer" @wheel.prevent="handleWheel">
+              <div v-if="isTreeLoading" class="tree-loading">
+                <div class="loading-spinner"></div>
+                <p>正在渲染...</p>
               </div>
-              <div v-else class="graph-container" @wheel.prevent="handleWheel" @mousedown="startDrag" @mousemove="onDrag" @mouseup="endDrag" @mouseleave="endDrag">
-                <div class="svg-wrapper" :style="transformStyle" v-html="svgContent" ref="svgWrapper"></div>
+              <div v-else-if="renderError" class="error-msg">{{ renderError }}</div>
+              <div v-else class="graph-container"
+                   @mousedown="startDrag"
+                   @mousemove="onDrag"
+                   @mouseup="endDrag"
+                   @mouseleave="endDrag">
+                <div class="svg-wrapper" ref="svgWrapper" :style="transformStyle" v-html="svgContent"></div>
               </div>
             </div>
           </div>
@@ -330,7 +297,6 @@ const transformStyle = computed(() => ({
 }));
 
 const sortedMessages = computed(() => {
-  // 按时间戳升序排序，旧消息在顶部
   return [...receivedMessages.value].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 });
 
@@ -410,7 +376,6 @@ watch([activeTab, encodeResult], async ([newTab, newResult]) => {
 
 const fetchUsers = async () => {
   try {
-    // 注意：请确保后端有这个接口，如果没有请自行调整
     const response = await axios.get('/api/users');
     userList.value = response.data;
   } catch (error) {
@@ -420,7 +385,7 @@ const fetchUsers = async () => {
 
 const switchToSendMessage = () => {
   currentPage.value = 'send';
-  fetchUsers(); // 切换到此页面时获取用户列表
+  fetchUsers();
 };
 
 const renderTree = async (dotString) => {
@@ -436,7 +401,8 @@ const renderTree = async (dotString) => {
       await initViz();
     }
     if (!vizInstance) {
-      throw new Error('Viz.js 渲染引擎初始化失败。');
+      renderError.value = 'Viz.js 初始化失败';
+      return;
     }
     const svg = vizInstance.renderSVGElement(dotString);
     svg.setAttribute('width', '100%');
@@ -510,8 +476,7 @@ const handleEncode = async () => {
   outputTab.value = 'codes';
   try {
     const response = await axios.post('/api/huffman/process', {
-      text: textToEncode.value,
-      operation: 'encode'
+      text: textToEncode.value
     });
     encodeResult.value = response.data;
     addToHistory('编码', textToEncode.value, response.data.encodedText);
@@ -562,9 +527,7 @@ const connectWebSocket = () => {
       isConnected.value = true;
       stompClient.subscribe('/topic/messages', (message) => {
         const msg = JSON.parse(message.body);
-        if (msg.sender !== username.value) {
-          receivedMessages.value.push(msg);
-        }
+        receivedMessages.value.push(msg);
       });
       stompClient.subscribe(`/user/${username.value}/queue/private`, (message) => {
         const msg = JSON.parse(message.body);
@@ -599,13 +562,13 @@ const sendMessage = async () => {
 
   if (encodeBeforeSend.value) {
     try {
-      const response = await axios.post('/api/huffman/process', { text: originalMessage, operation: 'encode' });
-      messageContent = `[已编码] ${response.data.encodedText} | 编码表: ${JSON.stringify(response.data.codes)}`;
-      addToHistory('编码发送', originalMessage, response.data.encodedText);
+      const response = await axios.post('/api/huffman/process', { text: messageToSend.value });
+      messageContent = response.data.encodedText;
+      addToHistory('发送(编码)', originalMessage, messageContent);
     } catch (error) {
-      console.error('发送前编码失败:', error);
-      alert('发送前编码失败!');
-      return;
+      console.error('编码失败:', error);
+      alert('编码失败，消息将以原文发送');
+      addToHistory('发送', originalMessage, originalMessage);
     }
   } else {
     addToHistory('发送', originalMessage, originalMessage);
@@ -623,7 +586,6 @@ const sendMessage = async () => {
     body: JSON.stringify(messagePayload)
   });
 
-  // 本地立即显示自己发送的消息
   receivedMessages.value.push({
     id: Date.now(),
     sender: username.value,
@@ -691,6 +653,10 @@ const logout = () => {
 
 <style>
 /* 全局样式重置 */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body, html {
   margin: 0;
   padding: 0;
@@ -701,11 +667,27 @@ body, html {
   color: #333;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
+
+#app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
 </style>
 
 <style scoped>
-/* 主布局 */
-.app-layout { display: flex; width: 100vw; height: 100vh; }
+/* 主布局 - 确保占满整个视口 */
+.app-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
 
 /* 侧边栏 */
 .sidebar { width: 220px; flex-shrink: 0; background-color: #2c3e50; color: #ecf0f1; display: flex; flex-direction: column; box-shadow: 2px 0 5px rgba(0,0,0,0.1); z-index: 100; }
@@ -730,16 +712,14 @@ body, html {
 
 /* 内容面板 */
 .main-content { flex-grow: 1; padding: 24px; overflow-y: auto; background-color: #f4f7f6; }
-.content-card { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 24px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; }
+.content-card { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 24px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
 
-/* --- 消息通信页新样式 (REVISED) --- */
+/* --- 消息通信页样式 --- */
 .chat-layout { padding: 0; overflow: hidden; }
 .chat-toolbar { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid #eee; flex-shrink: 0; }
 .connection-status { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: #e74c3c; transition: background-color 0.3s; }
 .status-dot.connected { background-color: #2ecc71; }
-
-/* 修复未连接看不清的问题 */
 .status-text { color: #333; font-weight: 600; margin-right: 4px; }
 
 .connect-btn.small, .disconnect-btn.small, .history-btn.small { padding: 4px 12px; font-size: 13px; margin-left: 4px; }
@@ -752,7 +732,6 @@ body, html {
 .receiver-input-wrapper input { border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; font-size: 14px; outline: none; width: 180px; }
 .receiver-input-wrapper input:focus { border-color: #1abc9c; }
 
-/* --- 左右聊天气泡布局核心样式 --- */
 .messages-container {
   flex-grow: 1;
   overflow-y: auto;
@@ -772,92 +751,23 @@ body, html {
   max-width: 85%;
 }
 
-/* 1. 别人发的消息 (左侧) */
-.message-row.received {
-  align-self: flex-start;
-}
-.message-row.received .msg-content {
-  background-color: #fff;
-  color: #333;
-  border: 1px solid #e6e6e6;
-  border-top-left-radius: 2px; /* 左上角对其头像 */
-}
-.message-row.received .msg-avatar {
-  background-color: #95a5a6;
-}
+.message-row.received { align-self: flex-start; }
+.message-row.received .msg-content { background-color: #fff; color: #333; border: 1px solid #e6e6e6; border-top-left-radius: 2px; }
+.message-row.received .msg-avatar { background-color: #95a5a6; }
 
-/* 2. 我发的消息 (右侧) */
-.message-row.sent {
-  align-self: flex-end;
-  flex-direction: row-reverse; /* 反转顺序，头像在最右 */
-  text-align: right;
-}
-.message-row.sent .msg-info {
-  justify-content: flex-end;
-}
-.message-row.sent .msg-content {
-  background-color: #1abc9c;
-  color: white;
-  border-top-right-radius: 2px; /* 右上角对齐头像 */
-  text-align: left; /* 气泡内部文字习惯上还是左对齐 */
-  box-shadow: 0 2px 5px rgba(26, 188, 156, 0.2);
-}
-.message-row.sent .msg-avatar {
-  background-color: #16a085;
-}
+.message-row.sent { align-self: flex-end; flex-direction: row-reverse; text-align: right; }
+.message-row.sent .msg-info { justify-content: flex-end; }
+.message-row.sent .msg-content { background-color: #1abc9c; color: white; border-top-right-radius: 2px; text-align: left; box-shadow: 0 2px 5px rgba(26, 188, 156, 0.2); }
+.message-row.sent .msg-avatar { background-color: #16a085; }
 
-/* 3. 系统消息 (居中) */
-.message-row.system {
-  align-self: center;
-  max-width: 100%;
-}
-.system-msg-bubble {
-  background-color: rgba(0,0,0,0.05);
-  color: #aaa;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  text-align: center;
-}
+.message-row.system { align-self: center; max-width: 100%; }
+.system-msg-bubble { background-color: rgba(0,0,0,0.05); color: #aaa; padding: 4px 12px; border-radius: 20px; font-size: 12px; text-align: center; }
 
-/* 通用元素样式 */
-.msg-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 14px;
-  flex-shrink: 0;
-}
+.msg-avatar { width: 36px; height: 36px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; flex-shrink: 0; }
+.msg-bubble-wrapper { display: flex; flex-direction: column; max-width: 100%; }
+.msg-info { display: flex; gap: 8px; margin-bottom: 4px; font-size: 11px; color: #888; }
+.msg-content { padding: 10px 14px; border-radius: 12px; line-height: 1.5; word-break: break-all; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
-.msg-bubble-wrapper {
-  display: flex;
-  flex-direction: column;
-  max-width: 100%;
-}
-
-.msg-info {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 4px;
-  font-size: 11px;
-  color: #888;
-}
-
-.msg-content {
-  padding: 10px 14px;
-  border-radius: 12px;
-  line-height: 1.5;
-  word-break: break-all;
-  font-size: 14px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-/* 底部输入区 */
 .chat-input-area { border-top: 1px solid #eee; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; background-color: #fff; }
 .chat-input-area textarea { width: 100%; height: 80px; border: 1px solid #ddd; border-radius: 6px; padding: 10px; font-size: 14px; resize: none; outline: none; transition: border-color 0.3s; box-sizing: border-box; }
 .chat-input-area textarea:focus { border-color: #1abc9c; }
@@ -866,32 +776,90 @@ body, html {
 .send-btn { align-self: flex-end; padding: 8px 24px; border: none; border-radius: 6px; background-color: #1abc9c; color: white; font-size: 15px; cursor: pointer; transition: opacity 0.3s; }
 .send-btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
 
-/* --- 编码/解码页及其他 (保持原样) --- */
-.tool-tabs { display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid #eee; }
+/* --- 编码/解码页样式 --- */
+.tool-tabs { display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid #eee; flex-shrink: 0; }
 .tab-button { padding: 10px 20px; border: none; border-bottom: 3px solid transparent; background-color: transparent; cursor: pointer; font-size: 15px; color: #7f8c8d; transition: all 0.3s; font-weight: 500; }
 .tab-button:hover:not(:disabled) { color: #1abc9c; }
 .tab-button.active { color: #1abc9c; border-bottom-color: #1abc9c; }
 .tab-button:disabled { opacity: 0.5; cursor: not-allowed; }
-.coder-panel { flex-grow: 1; display: flex; gap: 24px; min-height: 0; }
-.input-section, .output-section { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.section-title { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #2c3e50; padding-bottom: 12px; border-bottom: 1px solid #eee; }
-.textarea-wrapper { flex-grow: 1; margin-bottom: 16px; min-height: 150px; display: flex; }
+
+.coder-panel {
+  flex-grow: 1;
+  display: flex;
+  gap: 24px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.input-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.output-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.section-title { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #2c3e50; padding-bottom: 12px; border-bottom: 1px solid #eee; flex-shrink: 0; }
+
+.textarea-wrapper {
+  flex: 1;
+  margin-bottom: 16px;
+  min-height: 100px;
+  max-height: 200px;
+  display: flex;
+}
+
 textarea { width: 100%; height: 100%; border: 1px solid #ddd; border-radius: 6px; padding: 12px; font-size: 14px; resize: none; outline: none; transition: border-color 0.3s; background-color: #fdfdfd; color: #333; box-sizing: border-box; font-family: inherit; line-height: 1.6; }
 textarea:focus { border-color: #1abc9c; }
-.codes-input { flex-grow: 1; display: flex; flex-direction: column; margin-bottom: 16px; min-height: 120px; }
-.codes-input h3 { font-size: 14px; color: #7f8c8d; margin: 0 0 8px 0; }
-.action-button { width: 100%; padding: 12px; border: none; border-radius: 6px; color: white; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.3s; flex-shrink: 0; }
+
+.codes-input {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+  min-height: 80px;
+  max-height: 120px;
+}
+
+.codes-input h3 { font-size: 14px; color: #7f8c8d; margin: 0 0 8px 0; flex-shrink: 0; }
+.codes-input textarea { flex: 1; min-height: 60px; }
+
+.action-button {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
 .action-button.primary { background-color: #1abc9c; }
 .action-button:hover:not(:disabled) { opacity: 0.9; }
 .action-button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+
 .placeholder { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #95a5a6; text-align: center; }
 .placeholder-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+
 .result-display { display: flex; flex-direction: column; gap: 16px; flex-grow: 1; overflow-y: auto; }
 .result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .result-item h3 { font-size: 12px; color: #7f8c8d; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
 .copy-btn { background-color: #ecf0f1; border: 1px solid #ddd; color: #7f8c8d; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; transition: all 0.2s; }
 .copy-btn:hover { background-color: #bdc3c7; color: white; }
 .code-box { background-color: #f8f9fa; padding: 14px; border-radius: 6px; border: 1px solid #eee; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; color: #2c3e50; max-height: 180px; overflow-y: auto; word-break: break-all; white-space: pre-wrap; line-height: 1.6; }
+
 .output-tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #eee; flex-shrink: 0; }
 .output-tabs button { padding: 8px 16px; border: none; background-color: transparent; color: #7f8c8d; cursor: pointer; transition: all 0.3s; border-bottom: 2px solid transparent; font-size: 14px; }
 .output-tabs button.active { color: #1abc9c; border-bottom-color: #1abc9c; }
@@ -899,7 +867,7 @@ textarea:focus { border-color: #1abc9c; }
 
 /* 树 */
 .tree-panel { flex-grow: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-.tree-toolbar { text-align: center; padding: 8px; color: #7f8c8d; font-size: 12px; display: flex; justify-content: center; gap: 12px; align-items: center; }
+.tree-toolbar { text-align: center; padding: 8px; color: #7f8c8d; font-size: 12px; display: flex; justify-content: center; gap: 12px; align-items: center; flex-shrink: 0; }
 .retry-btn, .zoom-btn { background: #fff; border: 1px solid #ddd; color: #555; cursor: pointer; padding: 4px 12px; border-radius: 4px; font-size: 12px; transition: all 0.2s; }
 .retry-btn:hover, .zoom-btn:hover { color: #1abc9c; border-color: #1abc9c; }
 .tree-container { flex-grow: 1; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #eee; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
@@ -912,7 +880,7 @@ textarea:focus { border-color: #1abc9c; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 /* 历史记录 */
-.history-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #eee; }
+.history-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #eee; flex-shrink: 0; }
 .history-panel { flex-grow: 1; overflow-y: auto; }
 .history-list { display: flex; flex-direction: column; gap: 12px; }
 .history-item { background-color: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #eee; }
