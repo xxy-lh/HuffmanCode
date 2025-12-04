@@ -1,251 +1,260 @@
 <template>
-  <div class="main-app-container">
+  <div class="app-layout">
+    <!-- 左侧导航栏 -->
     <aside class="sidebar">
-      <div class="user-profile">
-        <div class="avatar">{{ username.charAt(0).toUpperCase() }}</div>
-        <div class="username">{{ username }}</div>
+      <div class="sidebar-header">
+        <span class="logo-icon">🛒</span>
+        <h1 class="logo-text">哈夫曼工具箱</h1>
       </div>
       <nav class="navigation">
         <a href="#"
            :class="['nav-item', { active: currentPage === 'huffman' }]"
            @click.prevent="currentPage = 'huffman'">
-          <span>🔐</span>
-          <span>哈夫曼编码译码</span>
+          <span class="nav-icon">🔐</span>
+          <span>编码译码</span>
         </a>
         <a href="#"
            :class="['nav-item', { active: currentPage === 'send' }]"
            @click.prevent="currentPage = 'send'">
-          <span>📤</span>
-          <span>发送</span>
+          <span class="nav-icon">📤</span>
+          <span>消息通信</span>
         </a>
         <a href="#"
            :class="['nav-item', { active: currentPage === 'history' }]"
            @click.prevent="currentPage = 'history'">
-          <span>📋</span>
-          <span>历史</span>
+          <span class="nav-icon">📋</span>
+          <span>操作历史</span>
         </a>
       </nav>
-      <button @click="logout" class="logout-button">退出登录</button>
     </aside>
 
-    <main class="main-content">
-      <!-- 发送页面 -->
-      <div v-if="currentPage === 'send'" class="page-content">
-        <header class="content-header">
-          <h1>Socket 消息通信</h1>
-          <p>通过 WebSocket 实时发送和接收消息</p>
-        </header>
-        <div class="send-panel">
-          <div class="connection-status">
-            <div :class="['status-dot', { connected: isConnected }]"></div>
-            <span>{{ isConnected ? '已连接' : '未连接' }}</span>
-            <button v-if="!isConnected" @click="connectWebSocket" class="connect-btn">连接</button>
-            <button v-else @click="disconnectWebSocket" class="disconnect-btn">断开</button>
-            <button @click="loadMessageHistory" class="history-btn">加载历史</button>
-          </div>
-          <div class="message-section">
-            <div class="input-area">
-              <h2>发送消息</h2>
-              <div class="receiver-input">
-                <label>接收者 (留空则广播):</label>
-                <input v-model="messageReceiver" placeholder="输入接收者用户名..." />
-              </div>
-              <textarea v-model="messageToSend" placeholder="在此输入要发送的消息..."></textarea>
-              <div class="send-options">
-                <label>
-                  <input type="checkbox" v-model="encodeBeforeSend" />
-                  发送前进行哈夫曼编码
-                </label>
-              </div>
-              <button @click="sendMessage" class="action-button" :disabled="!isConnected || !messageToSend.trim()">
-                发送消息
-              </button>
-            </div>
-            <div class="received-area">
-              <h2>消息记录</h2>
-              <div class="message-tabs">
-                <button :class="{ active: messageTab === 'all' }" @click="messageTab = 'all'">全部</button>
-                <button :class="{ active: messageTab === 'sent' }" @click="messageTab = 'sent'">已发送</button>
-                <button :class="{ active: messageTab === 'received' }" @click="messageTab = 'received'">已接收</button>
-              </div>
-              <div class="messages-list">
-                <div v-if="filteredMessages.length === 0" class="placeholder">
-                  <div class="placeholder-icon">💬</div>
-                  <p>暂无消息</p>
-                </div>
-                <div v-else v-for="msg in filteredMessages" :key="msg.id" :class="['message-item', getMsgClass(msg)]">
-                  <div class="message-header">
-                    <span class="message-sender">{{ msg.sender }}</span>
-                    <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
-                  </div>
-                  <div class="message-content">{{ msg.message }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 历史页面 -->
-      <div v-else-if="currentPage === 'history'" class="page-content">
-        <header class="content-header">
-          <h1>历史记录</h1>
-          <p>查看编码和发送的历史记录</p>
-        </header>
-        <div class="history-panel">
-          <div v-if="historyList.length === 0" class="placeholder">
-            <div class="placeholder-icon">📋</div>
-            <p>暂无历史记录</p>
-          </div>
-          <div v-else class="history-list">
-            <div v-for="(item, index) in historyList" :key="index" class="history-item">
-              <div class="history-header">
-                <span class="history-type">{{ item.type }}</span>
-                <span class="history-time">{{ item.time }}</span>
-              </div>
-              <div class="history-content">
-                <div class="history-original"><strong>原文:</strong> {{ item.original }}</div>
-                <div class="history-encoded"><strong>结果:</strong> {{ item.encoded }}</div>
-              </div>
-            </div>
-          </div>
-          <button v-if="historyList.length > 0" @click="clearHistory" class="clear-btn">
-            清空历史
+    <!-- 右侧主内容区 -->
+    <div class="main-wrapper">
+      <!-- 顶部信息栏 -->
+      <header class="top-bar">
+        <h2 class="page-title">
+          {{ currentPage === 'huffman' ? '哈夫曼编码/解码器' : (currentPage === 'send' ? 'Socket 消息通信' : '历史记录') }}
+        </h2>
+        <div class="user-info">
+          <div class="avatar">{{ username.charAt(0).toUpperCase() }}</div>
+          <span class="username">{{ username }}</span>
+          <button @click="logout" class="logout-button" title="退出登录">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
           </button>
         </div>
-      </div>
+      </header>
 
-      <!-- 哈夫曼编码译码页面 -->
-      <div v-else class="page-content">
-        <header class="content-header">
-          <h1>哈夫曼编码/解码器</h1>
-          <p>一个用于文本和数据压缩的可视化工具</p>
-        </header>
-        <div class="tool-tabs">
-          <button @click="activeTab = 'encode'" :class="{ active: activeTab === 'encode' }" class="tab-button">编码</button>
-          <button @click="activeTab = 'decode'" :class="{ active: activeTab === 'decode' }" class="tab-button">解码</button>
-          <button @click="activeTab = 'tree'" :class="{ active: activeTab === 'tree' }" class="tab-button tree-tab" :disabled="!encodeResult">查看哈夫曼树</button>
-        </div>
-        <div v-if="activeTab === 'encode'" class="coder-panel">
-          <div class="input-section">
-            <h2>输入文本</h2>
-            <div class="textarea-wrapper">
-              <textarea v-model="textToEncode" placeholder="在此输入要编码的文本..."></textarea>
+      <!-- 内容面板 -->
+      <main class="main-content">
+        <!-- 发送页面 -->
+        <div v-if="currentPage === 'send'" class="content-card">
+          <div class="send-panel">
+            <div class="connection-status">
+              <div :class="['status-dot', { connected: isConnected }]"></div>
+              <span>{{ isConnected ? '已连接' : '未连接' }}</span>
+              <button v-if="!isConnected" @click="connectWebSocket" class="connect-btn">连接</button>
+              <button v-else @click="disconnectWebSocket" class="disconnect-btn">断开</button>
+              <button @click="loadMessageHistory" class="history-btn">加载历史</button>
             </div>
-            <button @click="handleEncode" class="action-button" :disabled="isLoading">
-              {{ isLoading ? '编码中...' : '开始编码' }}
+            <div class="message-section">
+              <div class="input-area">
+                <h2 class="section-title">发送消息</h2>
+                <div class="receiver-input">
+                  <label>接收者 (留空则广播):</label>
+                  <input v-model="messageReceiver" placeholder="输入接收者用户名..." />
+                </div>
+                <textarea v-model="messageToSend" placeholder="在此输入要发送的消息..."></textarea>
+                <div class="send-options">
+                  <label>
+                    <input type="checkbox" v-model="encodeBeforeSend" />
+                    发送前进行哈夫曼编码
+                  </label>
+                </div>
+                <button @click="sendMessage" class="action-button primary" :disabled="!isConnected || !messageToSend.trim()">
+                  发送消息
+                </button>
+              </div>
+              <div class="received-area">
+                <h2 class="section-title">消息记录</h2>
+                <div class="message-tabs">
+                  <button :class="{ active: messageTab === 'all' }" @click="messageTab = 'all'">全部</button>
+                  <button :class="{ active: messageTab === 'sent' }" @click="messageTab = 'sent'">已发送</button>
+                  <button :class="{ active: messageTab === 'received' }" @click="messageTab = 'received'">已接收</button>
+                </div>
+                <div class="messages-list">
+                  <div v-if="filteredMessages.length === 0" class="placeholder">
+                    <div class="placeholder-icon">💬</div>
+                    <p>暂无消息</p>
+                  </div>
+                  <div v-else v-for="msg in filteredMessages" :key="msg.id" :class="['message-item', getMsgClass(msg)]">
+                    <div class="message-header">
+                      <span class="message-sender">{{ msg.sender }}</span>
+                      <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
+                    </div>
+                    <div class="message-content">{{ msg.message }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 历史页面 -->
+        <div v-else-if="currentPage === 'history'" class="content-card">
+          <div class="history-panel-header">
+            <h2 class="section-title">操作历史记录</h2>
+            <button v-if="historyList.length > 0" @click="clearHistory" class="clear-btn">
+              清空历史
             </button>
           </div>
-          <div class="output-section">
-            <h2>编码结果</h2>
-            <div class="result-content">
-              <div v-if="!encodeResult" class="placeholder">
-                <div class="placeholder-icon">📊</div>
-                <p>编码结果将在这里显示</p>
-              </div>
-              <div v-else class="result-display">
-                <div class="output-tabs">
-                  <button :class="{ active: outputTab === 'codes' }" @click="outputTab = 'codes'">编码表</button>
-                  <button :class="{ active: outputTab === 'encoded' }" @click="outputTab = 'encoded'">编码结果</button>
-                  <button :class="{ active: outputTab === 'freq' }" @click="outputTab = 'freq'">字符频率</button>
+          <div class="history-panel">
+            <div v-if="historyList.length === 0" class="placeholder">
+              <div class="placeholder-icon">📋</div>
+              <p>暂无历史记录</p>
+            </div>
+            <div v-else class="history-list">
+              <div v-for="(item, index) in historyList" :key="index" class="history-item">
+                <div class="history-header">
+                  <span class="history-type">{{ item.type }}</span>
+                  <span class="history-time">{{ item.time }}</span>
                 </div>
-                <div class="output-content">
-                  <div v-if="outputTab === 'codes'" class="result-item">
-                    <div class="result-header">
-                      <h3>哈夫曼编码表</h3>
-                      <div class="btn-group">
-                        <button class="copy-btn primary" @click="copyToClipboard(JSON.stringify(encodeResult.codes))">复制JSON</button>
+                <div class="history-content">
+                  <div class="history-original"><strong>原文:</strong> {{ item.original }}</div>
+                  <div class="history-encoded"><strong>结果:</strong> {{ item.encoded }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 哈夫曼编码译码页面 -->
+        <div v-else class="content-card">
+          <div class="tool-tabs">
+            <button @click="activeTab = 'encode'" :class="{ active: activeTab === 'encode' }" class="tab-button">编码</button>
+            <button @click="activeTab = 'decode'" :class="{ active: activeTab === 'decode' }" class="tab-button">解码</button>
+            <button @click="activeTab = 'tree'" :class="{ active: activeTab === 'tree' }" class="tab-button tree-tab" :disabled="!encodeResult">查看哈夫曼树</button>
+          </div>
+          <div v-if="activeTab === 'encode'" class="coder-panel">
+            <div class="input-section">
+              <h2 class="section-title">输入文本</h2>
+              <div class="textarea-wrapper">
+                <textarea v-model="textToEncode" placeholder="在此输入要编码的文本..."></textarea>
+              </div>
+              <button @click="handleEncode" class="action-button primary" :disabled="isLoading">
+                {{ isLoading ? '编码中...' : '开始编码' }}
+              </button>
+            </div>
+            <div class="output-section">
+              <h2 class="section-title">编码结果</h2>
+              <div class="result-content">
+                <div v-if="!encodeResult" class="placeholder">
+                  <div class="placeholder-icon">📊</div>
+                  <p>编码结果将在这里显示</p>
+                </div>
+                <div v-else class="result-display">
+                  <div class="output-tabs">
+                    <button :class="{ active: outputTab === 'codes' }" @click="outputTab = 'codes'">编码表</button>
+                    <button :class="{ active: outputTab === 'encoded' }" @click="outputTab = 'encoded'">编码结果</button>
+                    <button :class="{ active: outputTab === 'freq' }" @click="outputTab = 'freq'">字符频率</button>
+                  </div>
+                  <div class="output-content">
+                    <div v-if="outputTab === 'codes'" class="result-item">
+                      <div class="result-header">
+                        <h3>哈夫曼编码表</h3>
+                        <div class="btn-group">
+                          <button class="copy-btn" @click="copyToClipboard(JSON.stringify(encodeResult.codes))">复制JSON</button>
+                        </div>
                       </div>
+                      <pre class="code-box">{{ formatCodes(encodeResult.codes) }}</pre>
                     </div>
-                    <pre class="code-box">{{ formatCodes(encodeResult.codes) }}</pre>
-                  </div>
-                  <div v-if="outputTab === 'encoded'" class="result-item">
-                    <div class="result-header">
-                      <h3>编码后的文本</h3>
-                      <button class="copy-btn" @click="copyToClipboard(encodeResult.encodedText)">复制</button>
+                    <div v-if="outputTab === 'encoded'" class="result-item">
+                      <div class="result-header">
+                        <h3>编码后的文本</h3>
+                        <button class="copy-btn" @click="copyToClipboard(encodeResult.encodedText)">复制</button>
+                      </div>
+                      <pre class="code-box">{{ encodeResult.encodedText }}</pre>
                     </div>
-                    <pre class="code-box">{{ encodeResult.encodedText }}</pre>
-                  </div>
-                  <div v-if="outputTab === 'freq'" class="result-item">
-                    <div class="result-header">
-                      <h3>字符频率统计</h3>
+                    <div v-if="outputTab === 'freq'" class="result-item">
+                      <div class="result-header">
+                        <h3>字符频率统计</h3>
+                      </div>
+                      <pre class="code-box">{{ formatFrequencies(encodeResult.frequencies) }}</pre>
                     </div>
-                    <pre class="code-box">{{ formatFrequencies(encodeResult.frequencies) }}</pre>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div v-if="activeTab === 'decode'" class="coder-panel">
-          <div class="input-section">
-            <h2>输入编码</h2>
-            <div class="textarea-wrapper">
-              <textarea v-model="textToDecode" placeholder="在此输入要解码的二进制文本..."></textarea>
-            </div>
-            <div class="codes-input">
-              <h3>编码表 (JSON格式)</h3>
-              <textarea v-model="codesForDecode" placeholder='{"a": "00", "b": "01", ...}'></textarea>
-            </div>
-            <button @click="handleDecode" class="action-button" :disabled="isDecoding">
-              {{ isDecoding ? '解码中...' : '开始解码' }}
-            </button>
-          </div>
-          <div class="output-section">
-            <h2>解码结果</h2>
-            <div class="result-content">
-              <div v-if="!decodeResult" class="placeholder">
-                <div class="placeholder-icon">📝</div>
-                <p>解码结果将在这里显示</p>
+          <div v-if="activeTab === 'decode'" class="coder-panel">
+            <div class="input-section">
+              <h2 class="section-title">输入编码</h2>
+              <div class="textarea-wrapper">
+                <textarea v-model="textToDecode" placeholder="在此输入要解码的二进制文本..."></textarea>
               </div>
-              <div v-else class="result-display">
-                <div class="result-item">
-                  <div class="result-header">
-                    <h3>解码后的文本</h3>
-                    <button class="copy-btn" @click="copyToClipboard(decodeResult)">复制</button>
+              <div class="codes-input">
+                <h3>编码表 (JSON格式)</h3>
+                <textarea v-model="codesForDecode" placeholder='{"a": "00", "b": "01", ...}'></textarea>
+              </div>
+              <button @click="handleDecode" class="action-button primary" :disabled="isDecoding">
+                {{ isDecoding ? '解码中...' : '开始解码' }}
+              </button>
+            </div>
+            <div class="output-section">
+              <h2 class="section-title">解码结果</h2>
+              <div class="result-content">
+                <div v-if="!decodeResult" class="placeholder">
+                  <div class="placeholder-icon">📝</div>
+                  <p>解码结果将在这里显示</p>
+                </div>
+                <div v-else class="result-display">
+                  <div class="result-item">
+                    <div class="result-header">
+                      <h3>解码后的文本</h3>
+                      <button class="copy-btn" @click="copyToClipboard(decodeResult)">复制</button>
+                    </div>
+                    <pre class="code-box">{{ decodeResult }}</pre>
                   </div>
-                  <pre class="code-box">{{ decodeResult }}</pre>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div v-if="activeTab === 'tree'" class="tree-panel">
-          <div class="tree-toolbar">
-            <button class="zoom-btn" @click="zoomOut">-</button>
-            <span>缩放: {{ Math.round(scale * 100) }}%</span>
-            <button class="zoom-btn" @click="zoomIn">+</button>
-            <button class="zoom-btn" @click="resetZoom">重置</button>
-            <button class="retry-btn" @click="retryRender">重新渲染</button>
-          </div>
-          <div class="tree-container">
-            <div v-if="isTreeLoading" class="tree-loading">
-              <div class="loading-spinner"></div>
-              <p>正在渲染哈夫曼树...</p>
+          <div v-if="activeTab === 'tree'" class="tree-panel">
+            <div class="tree-toolbar">
+              <button class="zoom-btn" @click="zoomOut">-</button>
+              <span>缩放: {{ Math.round(scale * 100) }}%</span>
+              <button class="zoom-btn" @click="zoomIn">+</button>
+              <button class="zoom-btn" @click="resetZoom">重置</button>
+              <button class="retry-btn" @click="retryRender">重新渲染</button>
             </div>
-            <div v-else-if="renderError" class="error-msg">
-              <p><strong>渲染失败:</strong></p>
-              <p>{{ renderError }}</p>
-            </div>
-            <div v-else-if="svgContent"
-                 ref="graphContainer"
-                 class="graph-container"
-                 @wheel.prevent="handleWheel"
-                 @mousedown="startDrag"
-                 @mousemove="onDrag"
-                 @mouseup="endDrag"
-                 @mouseleave="endDrag">
-              <div ref="svgWrapper" class="svg-wrapper" :style="transformStyle" v-html="svgContent"></div>
-            </div>
-            <div v-else class="placeholder">
-              <div class="placeholder-icon">🌳</div>
-              <p>请先进行编码操作</p>
+            <div class="tree-container">
+              <div v-if="isTreeLoading" class="tree-loading">
+                <div class="loading-spinner"></div>
+                <p>正在渲染哈夫曼树...</p>
+              </div>
+              <div v-else-if="renderError" class="error-msg">
+                <p><strong>渲染失败:</strong></p>
+                <p>{{ renderError }}</p>
+              </div>
+              <div v-else-if="svgContent"
+                   ref="graphContainer"
+                   class="graph-container"
+                   @wheel.prevent="handleWheel"
+                   @mousedown="startDrag"
+                   @mousemove="onDrag"
+                   @mouseup="endDrag"
+                   @mouseleave="endDrag">
+                <div ref="svgWrapper" class="svg-wrapper" :style="transformStyle" v-html="svgContent"></div>
+              </div>
+              <div v-else class="placeholder">
+                <div class="placeholder-icon">🌳</div>
+                <p>请先进行编码操作</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   </div>
 </template>
 
@@ -348,19 +357,11 @@ const formatTime = (timestamp) => {
 // --- 生命周期钩子 ---
 onMounted(async () => {
   const storedUsername = localStorage.getItem('username');
-  const storedUser = localStorage.getItem('user');
-
   if (storedUsername) {
     username.value = storedUsername;
-  } else if (storedUser) {
-    try {
-      const userObj = JSON.parse(storedUser);
-      username.value = userObj.username || userObj.name || 'User';
-      localStorage.setItem('username', username.value);
-    } catch (e) {
-      username.value = storedUser;
-      localStorage.setItem('username', username.value);
-    }
+  } else {
+    router.push('/login'); // 如果没有用户名，则重定向到登录页
+    return;
   }
 
   const savedHistory = localStorage.getItem('huffmanHistory');
@@ -381,7 +382,6 @@ const initViz = async () => {
   try {
     const { instance } = await import('@viz-js/viz');
     vizInstance = await instance();
-    console.log('Viz.js 初始化成功');
   } catch (error) {
     console.error('Viz.js 初始化失败:', error);
   }
@@ -552,13 +552,8 @@ const connectWebSocket = () => {
     reconnectDelay: 5000,
     onConnect: () => {
       isConnected.value = true;
-      console.log('WebSocket 已连接');
-
-      // 订阅公共消息
       stompClient.subscribe('/topic/messages', (message) => {
         const msg = JSON.parse(message.body);
-        console.log('收到公共消息:', msg);
-        // 避免重复添加自己发送的消息
         if (msg.sender !== username.value || msg.type === 'JOIN' || msg.type === 'LEAVE') {
           receivedMessages.value.unshift({
             id: msg.id || Date.now(),
@@ -569,11 +564,8 @@ const connectWebSocket = () => {
           });
         }
       });
-
-      // 订阅私人消息
       stompClient.subscribe(`/user/${username.value}/queue/private`, (message) => {
         const msg = JSON.parse(message.body);
-        console.log('收到私人消息:', msg);
         receivedMessages.value.unshift({
           id: msg.id || Date.now(),
           sender: msg.sender,
@@ -582,8 +574,6 @@ const connectWebSocket = () => {
           type: 'PRIVATE'
         });
       });
-
-      // 通知服务器用户加入
       stompClient.publish({
         destination: '/app/join',
         body: JSON.stringify({ username: username.value })
@@ -591,7 +581,6 @@ const connectWebSocket = () => {
     },
     onDisconnect: () => {
       isConnected.value = false;
-      console.log('WebSocket 已断开');
     },
     onStompError: (frame) => {
       console.error('STOMP 错误:', frame);
@@ -643,7 +632,6 @@ const sendMessage = async () => {
     })
   });
 
-  // 本地立即添加已发送的消息
   receivedMessages.value.unshift({
     id: Date.now(),
     sender: username.value,
@@ -723,184 +711,206 @@ const logout = () => {
 </script>
 
 <style>
+/* 全局样式重置 */
 body, html {
-  margin: 0 !important;
-  padding: 0 !important;
+  margin: 0;
+  padding: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: #1a1a2e;
-  color: #ecf0f1;
+  background-color: #f4f7f6; /* 页面背景色 */
+  color: #333;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 </style>
 
 <style scoped>
-.main-app-container {
+/* 主布局 */
+.app-layout {
+  display: flex;
   width: 100vw;
   height: 100vh;
-  display: flex;
 }
 
+/* 侧边栏 */
 .sidebar {
   width: 220px;
   flex-shrink: 0;
-  background-color: #16213e;
+  background-color: #2c3e50; /* 深蓝色背景 */
   color: #ecf0f1;
   display: flex;
   flex-direction: column;
-  padding: 24px 16px;
-  box-sizing: border-box;
-  box-shadow: 4px 0 10px rgba(0,0,0,0.2);
-  z-index: 10;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+  z-index: 100;
 }
 
-.user-profile {
-  text-align: center;
-  margin-bottom: 32px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
+.sidebar-header {
+  padding: 20px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: bold;
-  margin: 0 auto 12px;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.username {
-  font-size: 16px;
+.logo-icon {
+  font-size: 24px;
+}
+
+.logo-text {
+  font-size: 18px;
   font-weight: 600;
+  margin: 0;
+  color: #fff;
 }
 
 .navigation {
   flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding: 10px 0;
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border-radius: 10px;
-  color: #a0a0a0;
+  gap: 12px;
+  padding: 14px 20px;
+  margin: 4px 10px;
+  border-radius: 6px;
+  color: #bdc3c7;
   text-decoration: none;
   transition: all 0.3s;
-  font-size: 14px;
+  font-size: 15px;
+  border-left: 3px solid transparent;
+}
+
+.nav-icon {
+  font-size: 18px;
 }
 
 .nav-item:hover {
-  background-color: rgba(255,255,255,0.05);
-  color: white;
+  background-color: #34495e;
+  color: #fff;
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
+  background-color: #1abc9c;
+  color: #fff;
   font-weight: 500;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
-.logout-button {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  border-radius: 10px;
-  background-color: rgba(231, 76, 60, 0.15);
-  color: #e74c3c;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s;
-  border: 1px solid rgba(231, 76, 60, 0.3);
-}
-
-.logout-button:hover {
-  background-color: #e74c3c;
-  color: white;
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  box-sizing: border-box;
-  min-width: 0;
-  background-color: #1a1a2e;
-}
-
-.page-content {
+/* 右侧主内容区 */
+.main-wrapper {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  padding: 32px 40px;
-  width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.content-header {
-  text-align: center;
-  margin-bottom: 24px;
+/* 顶部栏 */
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  height: 60px;
+  background-color: #fff;
+  border-bottom: 1px solid #e0e0e0;
   flex-shrink: 0;
 }
 
-.content-header h1 {
-  font-size: 32px;
-  margin: 0 0 8px 0;
-  color: #ffffff;
-  font-weight: 700;
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0;
 }
 
-.content-header p {
-  font-size: 14px;
-  color: #888;
-  margin: 0;
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #1abc9c;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.username {
+  font-size: 15px;
+  font-weight: 500;
+  color: #555;
+}
+
+.logout-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #7f8c8d;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.logout-button:hover {
+  color: #e74c3c;
+  background-color: #fbeeee;
+}
+
+/* 内容面板 */
+.main-content {
+  flex-grow: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background-color: #f4f7f6;
+}
+
+.content-card {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  padding: 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .tool-tabs {
   display: flex;
-  justify-content: center;
   gap: 12px;
   margin-bottom: 24px;
-  flex-shrink: 0;
+  border-bottom: 1px solid #eee;
 }
 
 .tab-button {
-  padding: 12px 32px;
-  border: 2px solid #333;
-  border-radius: 25px;
+  padding: 10px 20px;
+  border: none;
+  border-bottom: 3px solid transparent;
   background-color: transparent;
   cursor: pointer;
   font-size: 15px;
-  color: #888;
+  color: #7f8c8d;
   transition: all 0.3s;
   font-weight: 500;
 }
 
 .tab-button:hover:not(:disabled) {
-  border-color: #667eea;
-  color: #667eea;
+  color: #1abc9c;
 }
 
 .tab-button.active {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border-color: transparent;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  color: #1abc9c;
+  border-bottom-color: #1abc9c;
 }
 
 .tab-button:disabled {
@@ -908,44 +918,27 @@ body, html {
   cursor: not-allowed;
 }
 
-.coder-panel, .send-panel, .history-panel {
+.coder-panel, .send-panel {
   flex-grow: 1;
   display: flex;
   gap: 24px;
   min-height: 0;
-  width: 100%;
-}
-
-.coder-panel, .send-panel {
-  flex-direction: row;
-}
-
-.history-panel {
-  flex-direction: column;
-  background-color: #242444;
-  border-radius: 16px;
-  padding: 24px;
 }
 
 .input-section, .output-section, .input-area, .received-area {
   flex: 1;
-  background-color: #242444;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.input-section h2, .output-section h2, .input-area h2, .received-area h2 {
+.section-title {
   margin: 0 0 16px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #ffffff;
+  color: #2c3e50;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  flex-shrink: 0;
+  border-bottom: 1px solid #eee;
 }
 
 .textarea-wrapper {
@@ -955,34 +948,25 @@ body, html {
   display: flex;
 }
 
-.input-section textarea,
-.codes-input textarea,
-.input-area textarea {
+textarea {
   width: 100%;
   height: 100%;
-  border: 1px solid #333;
-  border-radius: 12px;
-  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 12px;
   font-size: 14px;
   resize: none;
   outline: none;
   transition: border-color 0.3s;
-  background-color: #1a1a2e;
-  color: #fff;
+  background-color: #fdfdfd;
+  color: #333;
   box-sizing: border-box;
   font-family: inherit;
   line-height: 1.6;
 }
 
-.input-area textarea {
-  flex-grow: 1;
-  margin-bottom: 16px;
-}
-
-.input-section textarea:focus,
-.codes-input textarea:focus,
-.input-area textarea:focus {
-  border-color: #667eea;
+textarea:focus {
+  border-color: #1abc9c;
 }
 
 .codes-input {
@@ -995,46 +979,37 @@ body, html {
 
 .codes-input h3 {
   font-size: 14px;
-  color: #888;
+  color: #7f8c8d;
   margin: 0 0 8px 0;
-  flex-shrink: 0;
 }
 
 .action-button {
   width: 100%;
-  padding: 14px;
+  padding: 12px;
   border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  border-radius: 6px;
   color: white;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
   flex-shrink: 0;
 }
 
+.action-button.primary {
+  background-color: #1abc9c;
+}
+
 .action-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+  opacity: 0.9;
 }
 
 .action-button:disabled {
-  background: #555;
+  background-color: #bdc3c7;
   cursor: not-allowed;
-  box-shadow: none;
 }
 
-.result-content {
-  flex-grow: 1;
-  overflow-y: auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.messages-list, .history-list {
+.result-content, .messages-list, .history-list {
   flex-grow: 1;
   overflow-y: auto;
   min-height: 0;
@@ -1046,7 +1021,7 @@ body, html {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: #95a5a6;
   text-align: center;
 }
 
@@ -1073,21 +1048,16 @@ body, html {
 
 .result-item h3 {
   font-size: 12px;
-  color: #888;
+  color: #7f8c8d;
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
-.btn-group {
-  display: flex;
-  gap: 8px;
-}
-
 .copy-btn {
-  background-color: #333;
-  border: none;
-  color: #aaa;
+  background-color: #ecf0f1;
+  border: 1px solid #ddd;
+  color: #7f8c8d;
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 12px;
@@ -1096,23 +1066,18 @@ body, html {
 }
 
 .copy-btn:hover {
-  background-color: #555;
+  background-color: #bdc3c7;
   color: white;
 }
 
-.copy-btn.primary {
-  background-color: #2c3e50;
-  color: #667eea;
-}
-
 .code-box {
-  background-color: #1a1a2e;
+  background-color: #f8f9fa;
   padding: 14px;
-  border-radius: 10px;
-  border: 1px solid #333;
+  border-radius: 6px;
+  border: 1px solid #eee;
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 13px;
-  color: #4ecca3;
+  color: #2c3e50;
   max-height: 180px;
   overflow-y: auto;
   word-break: break-all;
@@ -1124,7 +1089,7 @@ body, html {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid #eee;
   flex-shrink: 0;
 }
 
@@ -1132,7 +1097,7 @@ body, html {
   padding: 8px 16px;
   border: none;
   background-color: transparent;
-  color: #888;
+  color: #7f8c8d;
   cursor: pointer;
   transition: all 0.3s;
   border-bottom: 2px solid transparent;
@@ -1140,8 +1105,8 @@ body, html {
 }
 
 .output-tabs button.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: #1abc9c;
+  border-bottom-color: #1abc9c;
 }
 
 .output-content {
@@ -1150,401 +1115,68 @@ body, html {
   overflow-y: auto;
 }
 
-.tree-panel {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
+/* 树 */
+.tree-panel { flex-grow: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.tree-toolbar { text-align: center; padding: 8px; color: #7f8c8d; font-size: 12px; display: flex; justify-content: center; gap: 12px; align-items: center; }
+.retry-btn, .zoom-btn { background: #fff; border: 1px solid #ddd; color: #555; cursor: pointer; padding: 4px 12px; border-radius: 4px; font-size: 12px; transition: all 0.2s; }
+.retry-btn:hover, .zoom-btn:hover { color: #1abc9c; border-color: #1abc9c; }
+.tree-container { flex-grow: 1; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #eee; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+.graph-container { width: 100%; height: 100%; overflow: hidden; cursor: grab; display: flex; align-items: center; justify-content: center; }
+.graph-container:active { cursor: grabbing; }
+.svg-wrapper { transition: transform 0.1s ease-out; display: flex; align-items: center; justify-content: center; }
+.tree-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; color: #7f8c8d; }
+.error-msg { color: #e74c3c; background: #fbeeee; padding: 20px; border-radius: 8px; border: 1px solid #f5c6cb; max-width: 80%; }
+.loading-spinner { margin: 20px auto; border: 3px solid #eee; border-top: 3px solid #1abc9c; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-.tree-toolbar {
-  text-align: center;
-  padding: 8px;
-  color: #666;
-  font-size: 12px;
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  align-items: center;
-}
+/* 消息通信 */
+.connection-status { display: flex; align-items: center; gap: 12px; padding: 12px; background-color: #f8f9fa; border-radius: 8px; flex-shrink: 0; margin-bottom: 24px; border: 1px solid #eee; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background-color: #e74c3c; }
+.status-dot.connected { background-color: #2ecc71; }
+.connect-btn, .disconnect-btn, .history-btn { margin-left: auto; padding: 6px 16px; border: 1px solid; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.3s; }
+.connect-btn { background-color: #1abc9c; color: white; border-color: #1abc9c; }
+.disconnect-btn { background-color: transparent; color: #e74c3c; border-color: #e74c3c; }
+.history-btn { background-color: transparent; color: #3498db; border-color: #3498db; margin-left: 12px; }
+.message-section { flex-grow: 1; display: flex; gap: 24px; min-height: 0; }
+.send-options { margin-bottom: 16px; color: #555; }
+.send-options label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.send-options input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1abc9c; }
+.receiver-input { margin-bottom: 12px; }
+.receiver-input label { display: block; margin-bottom: 6px; color: #555; font-size: 13px; }
+.receiver-input input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; outline: none; transition: border-color 0.3s; box-sizing: border-box; }
+.receiver-input input:focus { border-color: #1abc9c; }
+.message-tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid #eee; padding-bottom: 12px; }
+.message-tabs button { padding: 6px 14px; border: none; background: transparent; color: #7f8c8d; cursor: pointer; font-size: 13px; border-radius: 4px; transition: all 0.3s; }
+.message-tabs button.active { background: #e8f8f5; color: #1abc9c; }
+.messages-list { display: flex; flex-direction: column; gap: 12px; padding-right: 10px; }
+.message-item { padding: 10px 14px; border-radius: 12px; max-width: 80%; line-height: 1.5; }
+.message-item.sent { background-color: #1abc9c; color: white; margin-left: auto; }
+.message-item.received { background-color: #ecf0f1; color: #34495e; margin-right: auto; }
+.message-item.system { background-color: #fef9e7; text-align: center; max-width: 100%; color: #f39c12; font-size: 12px; }
+.message-header { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; opacity: 0.8; }
+.message-sender { font-weight: 600; }
+.message-content { word-break: break-word; }
 
-.retry-btn, .zoom-btn {
-  background: transparent;
-  border: 1px solid #444;
-  color: #888;
-  cursor: pointer;
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  transition: all 0.2s;
-}
+/* 历史记录 */
+.history-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #eee; }
+.history-panel { flex-grow: 1; overflow-y: auto; }
+.history-list { display: flex; flex-direction: column; gap: 12px; }
+.history-item { background-color: #f8f9fa; padding: 16px; border-radius: 8px; border: 1px solid #eee; }
+.history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.history-type { background-color: #3498db; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.history-time { color: #95a5a6; font-size: 12px; }
+.history-content { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.history-original, .history-encoded { color: #555; word-break: break-all; }
+.history-original strong, .history-encoded strong { color: #2c3e50; }
+.clear-btn { padding: 8px 16px; border: 1px solid #e74c3c; border-radius: 6px; background-color: transparent; color: #e74c3c; cursor: pointer; transition: all 0.3s; font-size: 13px; font-weight: 500; }
+.clear-btn:hover { background-color: #e74c3c; color: white; }
 
-.retry-btn:hover, .zoom-btn:hover {
-  color: white;
-  border-color: #667eea;
-  background-color: rgba(102, 126, 234, 0.1);
-}
-
-.tree-container {
-  flex-grow: 1;
-  background-color: #242444;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.graph-container {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  cursor: grab;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.graph-container:active {
-  cursor: grabbing;
-}
-
-.svg-wrapper {
-  transition: transform 0.1s ease-out;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tree-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #888;
-}
-
-.error-msg {
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.1);
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid rgba(231, 76, 60, 0.3);
-  max-width: 80%;
-}
-
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 24px;
-  background-color: #242444;
-  border-radius: 12px;
-  flex-shrink: 0;
-  margin-bottom: 24px;
-}
-
-.status-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background-color: #e74c3c;
-}
-
-.status-dot.connected {
-  background-color: #27ae60;
-  box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
-}
-
-.connect-btn, .disconnect-btn {
-  margin-left: auto;
-  padding: 8px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s;
-}
-
-.connect-btn {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-}
-
-.disconnect-btn {
-  background-color: rgba(231, 76, 60, 0.2);
-  color: #e74c3c;
-  border: 1px solid rgba(231, 76, 60, 0.3);
-}
-
-.message-section {
-  flex-grow: 1;
-  display: flex;
-  gap: 24px;
-  min-height: 0;
-}
-
-.send-options {
-  margin-bottom: 16px;
-  color: #888;
-  flex-shrink: 0;
-}
-
-.send-options label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.send-options input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: #667eea;
-}
-
-.receiver-input {
-  margin-bottom: 12px;
-}
-
-.receiver-input label {
-  display: block;
-  margin-bottom: 6px;
-  color: #888;
-  font-size: 13px;
-}
-
-.receiver-input input {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid #333;
-  border-radius: 8px;
-  background-color: #1a1a2e;
-  color: #fff;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.3s;
-  box-sizing: border-box;
-}
-
-.receiver-input input:focus {
-  border-color: #667eea;
-}
-
-.history-btn {
-  margin-left: 12px;
-  padding: 8px 16px;
-  border: 1px solid #667eea;
-  border-radius: 8px;
-  background: transparent;
-  color: #667eea;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.3s;
-}
-
-.history-btn:hover {
-  background: rgba(102, 126, 234, 0.1);
-}
-
-.message-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid #333;
-  padding-bottom: 12px;
-}
-
-.message-tabs button {
-  padding: 6px 14px;
-  border: none;
-  background: transparent;
-  color: #888;
-  cursor: pointer;
-  font-size: 13px;
-  border-radius: 4px;
-  transition: all 0.3s;
-}
-
-.message-tabs button.active {
-  background: rgba(102, 126, 234, 0.2);
-  color: #667eea;
-}
-
-.messages-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.message-item {
-  padding: 12px 16px;
-  border-radius: 12px;
-  margin-bottom: 10px;
-  max-width: 85%;
-}
-
-.message-item.sent {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  margin-left: auto;
-  color: white;
-}
-
-.message-item.received {
-  background-color: #2a2a4a;
-  margin-right: auto;
-}
-
-.message-item.system {
-  background-color: rgba(255, 193, 7, 0.1);
-  border: 1px solid rgba(255, 193, 7, 0.3);
-  text-align: center;
-  max-width: 100%;
-  color: #ffc107;
-  font-size: 12px;
-}
-
-.message-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
-  font-size: 12px;
-}
-
-.message-sender {
-  font-weight: 600;
-}
-
-.message-item.sent .message-sender,
-.message-item.sent .message-time {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.message-item.received .message-sender {
-  color: #667eea;
-}
-
-.message-item.received .message-time {
-  color: #666;
-}
-
-.message-content {
-  word-break: break-word;
-  line-height: 1.5;
-}
-
-.message-item.received .message-content {
-  color: #e0e0e0;
-}
-
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.history-item {
-  background-color: #1a1a2e;
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid #333;
-}
-
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.history-type {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-}
-
-.history-time {
-  color: #666;
-  font-size: 12px;
-}
-
-.history-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.history-original, .history-encoded {
-  color: #888;
-  font-size: 13px;
-  word-break: break-all;
-}
-
-.history-original strong, .history-encoded strong {
-  color: #c0c0c0;
-}
-
-.clear-btn {
-  align-self: flex-end;
-  padding: 10px 24px;
-  border: 1px solid rgba(231, 76, 60, 0.3);
-  border-radius: 8px;
-  background-color: rgba(231, 76, 60, 0.1);
-  color: #e74c3c;
-  cursor: pointer;
-  transition: all 0.3s;
-  flex-shrink: 0;
-}
-
-.clear-btn:hover {
-  background-color: #e74c3c;
-  color: white;
-}
-
-.loading-spinner {
-  margin: 40px auto;
-  border: 3px solid #333;
-  border-top: 3px solid #667eea;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.svg-wrapper :deep(svg) {
-  max-width: 100%;
-  max-height: 100%;
-}
-
-.svg-wrapper :deep(.node text) {
-  fill: #e0e0e0 !important;
-}
-
-.svg-wrapper :deep(.edge text) {
-  fill: #aaa !important;
-}
-
+/* Viz.js SVG 样式覆盖 */
+.svg-wrapper :deep(svg) { max-width: 100%; max-height: 100%; }
+.svg-wrapper :deep(.node text) { fill: #333 !important; }
+.svg-wrapper :deep(.edge text) { fill: #777 !important; }
 .svg-wrapper :deep(.node polygon),
-.svg-wrapper :deep(.node ellipse) {
-  fill: #2a2a4a !important;
-  stroke: #667eea !important;
-}
-
-.svg-wrapper :deep(.edge path) {
-  stroke: #888 !important;
-}
-
-.svg-wrapper :deep(.graph > polygon) {
-  fill: transparent !important;
-  stroke: none !important;
-}
+.svg-wrapper :deep(.node ellipse) { fill: #fff !important; stroke: #1abc9c !important; stroke-width: 2px !important; }
+.svg-wrapper :deep(.edge path) { stroke: #bdc3c7 !important; }
+.svg-wrapper :deep(.graph > polygon) { fill: transparent !important; stroke: none !important; }
 </style>
