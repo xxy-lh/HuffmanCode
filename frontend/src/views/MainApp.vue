@@ -656,7 +656,7 @@ const formatCodes = (codes) => {
 
 const logout = () => {
   localStorage.removeItem('username');
-  localStorage.removeItem('user');
+  //localStorage.removeItem('user');
   if (stompClient) {
     stompClient.deactivate();
   }

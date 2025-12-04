@@ -16,7 +16,7 @@ const router = createRouter({
 
 // 添加导航守卫，检查用户是否登录
 router.beforeEach((to, from, next) => {
-  if (to.meta.requiresAuth && !localStorage.getItem('user')) {
+  if (to.meta.requiresAuth && !localStorage.getItem('username')) {
     next('/login');
   } else {
     next();
