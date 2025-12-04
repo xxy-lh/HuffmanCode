@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @EnableJpaRepositories
 public class HuffmanCodeApplication {
     public static void main(String[] args) {
+
         SpringApplication.run(HuffmanCodeApplication.class, args);
     }
 }

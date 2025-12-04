@@ -35,38 +35,54 @@
       <!-- 发送页面 -->
       <div v-if="currentPage === 'send'" class="page-content">
         <header class="content-header">
-          <h1>Socket 消息发送</h1>
-          <p>通过 WebSocket 发送哈夫曼编码数据</p>
+          <h1>Socket 消息通信</h1>
+          <p>通过 WebSocket 实时发送和接收消息</p>
         </header>
         <div class="send-panel">
           <div class="connection-status">
             <div :class="['status-dot', { connected: isConnected }]"></div>
             <span>{{ isConnected ? '已连接' : '未连接' }}</span>
-            <button v-if="! isConnected" @click="connectWebSocket" class="connect-btn">连接</button>
+            <button v-if="!isConnected" @click="connectWebSocket" class="connect-btn">连接</button>
             <button v-else @click="disconnectWebSocket" class="disconnect-btn">断开</button>
+            <button @click="loadMessageHistory" class="history-btn" :disabled="!username">加载历史</button>
           </div>
           <div class="message-section">
             <div class="input-area">
               <h2>发送消息</h2>
+              <div class="receiver-input">
+                <label>接收者 (留空则广播):</label>
+                <input v-model="messageReceiver" placeholder="输入用户名或留空" />
+              </div>
               <textarea v-model="messageToSend" placeholder="在此输入要发送的消息..."></textarea>
               <div class="send-options">
                 <label>
-                  <input type="checkbox" v-model="encodeBeforeSend">
+                  <input type="checkbox" v-model="encodeBeforeSend" />
                   发送前进行哈夫曼编码
                 </label>
               </div>
-              <button @click="sendMessage" :disabled="!isConnected || ! messageToSend.trim()" class="action-button">发送</button>
+              <button @click="sendMessage" :disabled="!isConnected || !messageToSend.trim()" class="action-button">
+                发送消息
+              </button>
             </div>
             <div class="received-area">
-              <h2>接收到的消息</h2>
-              <div v-if="receivedMessages.length === 0" class="placeholder">
-                <span class="placeholder-icon">📥</span>
-                <span>等待接收消息...</span>
+              <h2>消息记录</h2>
+              <div class="message-tabs">
+                <button @click="messageTab = 'all'" :class="{ active: messageTab === 'all' }">全部</button>
+                <button @click="messageTab = 'sent'" :class="{ active: messageTab === 'sent' }">已发送</button>
+                <button @click="messageTab = 'received'" :class="{ active: messageTab === 'received' }">已接收</button>
+              </div>
+              <div v-if="filteredMessages.length === 0" class="placeholder">
+                <span class="placeholder-icon">💬</span>
+                <span>暂无消息</span>
               </div>
               <div v-else class="messages-list">
-                <div v-for="(msg, index) in receivedMessages" :key="index" class="message-item">
-                  <div class="message-time">{{ msg.time }} (来自: {{ msg.sender }})</div>
-                  <div class="message-content">{{ msg.content }}</div>
+                <div v-for="(msg, index) in filteredMessages" :key="index"
+                     :class="['message-item', getMsgClass(msg)]">
+                  <div class="message-header">
+                    <span class="message-sender">{{ msg.sender }}</span>
+                    <span class="message-time">{{ formatTime(msg.timestamp || msg.time || msg.createdAt) }}</span>
+                  </div>
+                  <div class="message-content">{{ msg.message || msg.content }}</div>
                 </div>
               </div>
             </div>
@@ -127,17 +143,15 @@
           <div class="output-section">
             <h2>输出</h2>
             <div v-if="isLoading" class="loading-spinner"></div>
-            <div v-else-if="! encodeResult" class="placeholder">
+            <div v-else-if="!encodeResult" class="placeholder">
               <span class="placeholder-icon">📊</span>
               <span>等待编码结果...</span>
             </div>
             <div v-else class="result-content">
-              <!-- 输出区导航栏 -->
               <div class="output-tabs">
                 <button @click="outputTab = 'codes'" :class="{ active: outputTab === 'codes' }">哈夫曼编码</button>
                 <button @click="outputTab = 'freq'" :class="{ active: outputTab === 'freq' }">字符频率</button>
               </div>
-              <!-- 输出区内容 -->
               <div class="output-content">
                 <div v-if="outputTab === 'codes'" class="result-display">
                   <div class="result-item">
@@ -221,17 +235,14 @@
             <button @click="resetZoom" class="zoom-btn">重置</button>
           </div>
           <div class="tree-container">
-            <!-- 加载状态 -->
             <div v-if="isTreeLoading" class="tree-loading">
               <div class="loading-spinner"></div>
               <p>正在渲染哈夫曼树...</p>
             </div>
-            <!-- 错误状态 -->
             <div v-else-if="renderError" class="error-msg">
               <p><strong>图形渲染遇到问题:</strong></p>
               <p>{{ renderError }}</p>
             </div>
-            <!-- 图形容器 -->
             <div
               ref="graphContainer"
               class="graph-container"
@@ -284,8 +295,10 @@ const decodeResult = ref(null);
 // --- WebSocket相关状态 ---
 const isConnected = ref(false);
 const messageToSend = ref('');
+const messageReceiver = ref('');
 const encodeBeforeSend = ref(false);
 const receivedMessages = ref([]);
+const messageTab = ref('all');
 let stompClient = null;
 
 // --- 历史记录 ---
@@ -316,6 +329,43 @@ const transformStyle = computed(() => ({
   transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
   transformOrigin: 'center center'
 }));
+
+// 过滤消息
+const filteredMessages = computed(() => {
+  if (messageTab.value === 'sent') {
+    return receivedMessages.value.filter(msg => msg.sender === username.value);
+  } else if (messageTab.value === 'received') {
+    return receivedMessages.value.filter(msg => msg.sender !== username.value && msg.type !== 'JOIN' && msg.type !== 'LEAVE');
+  }
+  return receivedMessages.value;
+});
+
+// 获取消息样式类
+const getMsgClass = (msg) => {
+  if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
+    return 'system';
+  }
+  if (msg.sender === username.value) {
+    return 'sent';
+  }
+  return 'received';
+};
+
+// 格式化时间
+const formatTime = (timestamp) => {
+  if (!timestamp) return '';
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return timestamp;
+  }
+};
 
 // --- 生命周期钩子 ---
 onMounted(async () => {
@@ -371,28 +421,21 @@ const renderTree = async (dotString) => {
   svgContent.value = '';
 
   try {
-    // 确保 Viz.js 已初始化
     if (!vizInstance) {
       await initViz();
     }
 
-    if (! vizInstance) {
+    if (!vizInstance) {
       throw new Error('Viz.js 初始化失败，请刷新页面重试');
     }
 
-    // 渲染 DOT 为 SVG
     const svg = vizInstance.renderSVGElement(dotString);
-
-    // 修改 SVG 样式以适应深色主题
     svg.setAttribute('width', '100%');
     svg.setAttribute('height', '100%');
     svg.style.maxWidth = '100%';
     svg.style.maxHeight = '100%';
 
-    // 将 SVG 转换为字符串
     svgContent.value = svg.outerHTML;
-
-    // 重置缩放和位置
     resetZoom();
 
     console.log('哈夫曼树渲染成功');
@@ -531,13 +574,26 @@ const connectWebSocket = () => {
     onConnect: () => {
       isConnected.value = true;
       console.log('WebSocket 已连接');
+
+      // 订阅公共消息
       stompClient.subscribe('/topic/messages', (message) => {
         const msg = JSON.parse(message.body);
-        receivedMessages.value.unshift({
-          content: msg.message,
-          sender: msg.sender,
-          time: new Date().toLocaleTimeString()
-        });
+        receivedMessages.value.unshift(msg);
+      });
+
+      // 订阅私人消息
+      stompClient.subscribe(`/user/${username.value}/queue/private`, (message) => {
+        const msg = JSON.parse(message.body);
+        // 避免重复添加
+        if (!receivedMessages.value.find(m => m.id === msg.id)) {
+          receivedMessages.value.unshift(msg);
+        }
+      });
+
+      // 通知服务器用户加入
+      stompClient.publish({
+        destination: '/app/join',
+        body: JSON.stringify({ username: username.value })
       });
     },
     onDisconnect: () => {
@@ -553,12 +609,17 @@ const connectWebSocket = () => {
 
 const disconnectWebSocket = () => {
   if (stompClient) {
+    // 通知服务器用户离开
+    stompClient.publish({
+      destination: '/app/leave',
+      body: JSON.stringify({ username: username.value })
+    });
     stompClient.deactivate();
   }
 };
 
 const sendMessage = async () => {
-  if (! messageToSend.value.trim() || !isConnected.value) return;
+  if (!messageToSend.value.trim() || !isConnected.value) return;
 
   let messageContent = messageToSend.value;
   let originalMessage = messageToSend.value;
@@ -580,11 +641,29 @@ const sendMessage = async () => {
     destination: '/app/send',
     body: JSON.stringify({
       message: messageContent,
-      sender: username.value
+      sender: username.value,
+      receiver: messageReceiver.value || null,
+      encoded: encodeBeforeSend.value
     })
   });
 
   messageToSend.value = '';
+};
+
+// 加载消息历史
+const loadMessageHistory = async () => {
+  try {
+    const response = await axios.get(`/api/messages/history/${username.value}`);
+    // 将历史消息添加到列表（避免重复）
+    const existingIds = new Set(receivedMessages.value.map(m => m.id));
+    const newMessages = response.data.filter(m => !existingIds.has(m.id));
+    receivedMessages.value = [...receivedMessages.value, ...newMessages].sort((a, b) => {
+      return new Date(b.createdAt || b.timestamp) - new Date(a.createdAt || a.timestamp);
+    });
+  } catch (error) {
+    console.error('加载历史失败:', error);
+    alert('加载消息历史失败');
+  }
 };
 
 // --- 历史记录方法 ---
@@ -592,7 +671,7 @@ const addToHistory = (type, original, processed) => {
   const item = {
     type,
     original: original.substring(0, 100) + (original.length > 100 ? '...' : ''),
-    encoded: processed.substring(0, 100) + (processed.length > 100 ?  '...' : ''),
+    encoded: processed.substring(0, 100) + (processed.length > 100 ? '...' : ''),
     time: new Date().toLocaleString()
   };
   historyList.value.unshift(item);
@@ -1282,6 +1361,80 @@ body, html {
   accent-color: #667eea;
 }
 
+/* 消息页面额外样式 */
+.receiver-input {
+  margin-bottom: 12px;
+}
+
+.receiver-input label {
+  display: block;
+  margin-bottom: 6px;
+  color: #888;
+  font-size: 13px;
+}
+
+.receiver-input input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background-color: #1a1a2e;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.3s;
+  box-sizing: border-box;
+}
+
+.receiver-input input:focus {
+  border-color: #667eea;
+}
+
+.history-btn {
+  margin-left: 12px;
+  padding: 8px 16px;
+  border: 1px solid #667eea;
+  border-radius: 8px;
+  background: transparent;
+  color: #667eea;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.3s;
+}
+
+.history-btn:hover:not(:disabled) {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.history-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.message-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 12px;
+}
+
+.message-tabs button {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.message-tabs button.active {
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+}
+
 .messages-list {
   display: flex;
   flex-direction: column;
@@ -1289,22 +1442,63 @@ body, html {
 }
 
 .message-item {
-  background-color: #1a1a2e;
   padding: 12px 16px;
-  border-radius: 10px;
-  border: 1px solid #333;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  max-width: 85%;
 }
 
-.message-time {
+.message-item.sent {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  margin-left: auto;
+  color: white;
+}
+
+.message-item.received {
+  background-color: #2a2a4a;
+  margin-right: auto;
+}
+
+.message-item.system {
+  background-color: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  text-align: center;
+  max-width: 100%;
+  color: #ffc107;
   font-size: 12px;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.message-sender {
+  font-weight: 600;
+}
+
+.message-item.sent .message-sender,
+.message-item.sent .message-time {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message-item.received .message-sender {
+  color: #667eea;
+}
+
+.message-item.received .message-time {
   color: #666;
-  margin-bottom: 4px;
 }
 
 .message-content {
-  color: #4ecca3;
-  font-family: 'Consolas', monospace;
-  word-break: break-all;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.message-item.received .message-content {
+  color: #e0e0e0;
 }
 
 /* 历史页面样式 */
