@@ -10,7 +10,7 @@
         <a href="#"
            :class="['nav-item', { active: currentPage === 'huffman' }]"
            @click.prevent="currentPage = 'huffman'">
-          <span class="nav-icon">📝</span>
+          <span class="nav-icon">🔧</span>
           <span>编码/解码</span>
         </a>
         <a href="#"
@@ -346,12 +346,21 @@ watch(receivedMessages, () => {
 
 // --- 生命周期钩子 ---
 onMounted(async () => {
-  const storedUsername = localStorage.getItem('username');
+  // 使用 sessionStorage 替代 localStorage，每个标签页独立
+  const storedUsername = sessionStorage.getItem('username');
   if (storedUsername) {
     username.value = storedUsername;
   } else {
-    router.push('/login');
-    return;
+    // 如果 sessionStorage 没有，检查 localStorage（兼容旧数据）
+    const legacyUsername = localStorage.getItem('username');
+    if (legacyUsername) {
+      username.value = legacyUsername;
+      // 将其复制到 sessionStorage
+      sessionStorage.setItem('username', legacyUsername);
+    } else {
+      router.push('/login');
+      return;
+    }
   }
 
   const savedHistory = localStorage.getItem('huffmanHistory');
@@ -655,8 +664,10 @@ const formatCodes = (codes) => {
 };
 
 const logout = () => {
-  localStorage.removeItem('username');
-  //localStorage.removeItem('user');
+  // 清除 sessionStorage 中的用户名（当前标签页）
+  sessionStorage.removeItem('username');
+  // 可选：也清除 localStorage（如果想完全登出）
+  // localStorage.removeItem('username');
   if (stompClient) {
     stompClient.deactivate();
   }

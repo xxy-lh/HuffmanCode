@@ -62,7 +62,7 @@ const isRegister = ref(false);
 const username = ref('');
 const password = ref('');
 const errorMessage = ref('');
-const isLoading = ref(false); // 新增加载状态
+const isLoading = ref(false);
 
 function toggleForm() {
   isRegister.value = !isRegister.value;
@@ -87,7 +87,8 @@ async function handleLogin() {
       throw new Error(data.message || '登录失败');
     }
 
-    localStorage.setItem('username', data.username || username.value);
+    // 使用 sessionStorage 替代 localStorage，每个标签页独立
+    sessionStorage.setItem('username', data.username || username.value);
     await router.push('/app');
 
   } catch (error) {
@@ -132,19 +133,17 @@ async function handleRegister() {
   align-items: center;
   min-height: 100vh;
   width: 100vw;
-  background-color: #1a1a1a; /* 深灰色背景，类似参考图 */
-  /* 如果你想用背景图，可以取消下面这行的注释并替换URL */
-  /* background-image: url('你的图片地址'); background-size: cover; background-position: center; */
+  background-color: #1a1a1a;
 }
 
 /* 登录卡片 */
 .login-card {
   width: 100%;
   max-width: 400px;
-  background: #f5f5f7; /* 柔和的灰白色背景 */
-  border-radius: 24px; /* 大圆角 */
+  background: #f5f5f7;
+  border-radius: 24px;
   padding: 40px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3); /* 更有质感的阴影 */
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -191,7 +190,7 @@ label {
 input {
   width: 100%;
   padding: 14px 16px;
-  border: 2px solid transparent; /* 默认无边框 */
+  border: 2px solid transparent;
   background-color: #fff;
   border-radius: 12px;
   font-size: 16px;
@@ -202,7 +201,6 @@ input {
   box-sizing: border-box;
 }
 
-/* 输入框聚焦状态 */
 input:focus {
   border-color: #007bff;
   background-color: #fff;
@@ -216,7 +214,7 @@ input:focus {
   margin-top: 8px;
   border: none;
   border-radius: 12px;
-  background-color: #007bff; /* 亮蓝色 */
+  background-color: #007bff;
   color: white;
   font-size: 16px;
   font-weight: 600;
