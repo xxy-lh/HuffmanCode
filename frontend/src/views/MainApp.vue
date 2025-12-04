@@ -579,14 +579,12 @@ const sendMessage = async () => {
     } catch (error) {
       console.error('编码失败:', error);
       alert('编码失败，消息将以原文发送');
-      addToHistory('发送', originalMessage, originalMessage);
     }
-  } else {
-    addToHistory('发送', originalMessage, originalMessage);
   }
 
   const messagePayload = {
     message: messageContent,
+    originalMessage: originalMessage,
     sender: username.value,
     receiver: messageReceiver.value || null,
     encoded: encodeBeforeSend.value
@@ -597,18 +595,20 @@ const sendMessage = async () => {
     body: JSON.stringify(messagePayload)
   });
 
-  // 私信时本地添加消息，群发时通过订阅 /topic/messages 接收（避免重复）
   if (messageReceiver.value) {
     receivedMessages.value.push({
       sender: username.value,
       message: messageContent,
+      originalMessage: originalMessage,
       timestamp: new Date().toISOString(),
-      type: 'PRIVATE'
+      type: 'PRIVATE',
+      encoded: encodeBeforeSend.value
     });
   }
 
   messageToSend.value = '';
 };
+
 
 const loadMessageHistory = async () => {
   try {

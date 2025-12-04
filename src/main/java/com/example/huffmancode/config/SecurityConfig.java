@@ -13,14 +13,16 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configure(http))
-                .httpBasic(httpBasic -> httpBasic.disable())  // 禁用 HTTP Basic 认证
-                .formLogin(formLogin -> formLogin.disable())  // 禁用表单登录
+                .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/**", "/ws/**").permitAll()  // 允许所有 API 和 WebSocket 请求
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/huffman/**").permitAll()
+                        .requestMatchers("/api/messages/**").permitAll()
+                        .requestMatchers("/api/users/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .anyRequest().permitAll()
                 );
         return http.build();

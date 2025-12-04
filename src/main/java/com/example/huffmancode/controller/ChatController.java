@@ -22,13 +22,17 @@ public class ChatController {
     public void sendMessage(@Payload Map<String, Object> payload) {
         String sender = (String) payload.get("sender");
         String message = (String) payload.get("message");
+        String originalMessage = (String) payload.get("originalMessage");
         String receiver = (String) payload.get("receiver");
+        Boolean encoded = (Boolean) payload.get("encoded");
 
         Map<String, Object> response = new HashMap<>();
         response.put("sender", sender);
         response.put("message", message);
+        response.put("originalMessage", originalMessage);
         response.put("timestamp", LocalDateTime.now().toString());
         response.put("type", "MESSAGE");
+        response.put("encoded", encoded != null && encoded);
 
         if (receiver != null && !receiver.isEmpty()) {
             messagingTemplate.convertAndSendToUser(receiver, "/queue/private", response);
