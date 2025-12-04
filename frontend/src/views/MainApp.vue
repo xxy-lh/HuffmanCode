@@ -1,7 +1,5 @@
 <template>
-  <!-- 最外层容器：强制占满全屏 -->
   <div class="main-app-container">
-    <!-- 左侧导航栏 (固定宽度) -->
     <aside class="sidebar">
       <div class="user-profile">
         <div class="avatar">{{ username.charAt(0).toUpperCase() }}</div>
@@ -30,7 +28,6 @@
       <button @click="logout" class="logout-button">退出登录</button>
     </aside>
 
-    <!-- 右侧主内容区 -->
     <main class="main-content">
       <!-- 发送页面 -->
       <div v-if="currentPage === 'send'" class="page-content">
@@ -44,14 +41,14 @@
             <span>{{ isConnected ? '已连接' : '未连接' }}</span>
             <button v-if="!isConnected" @click="connectWebSocket" class="connect-btn">连接</button>
             <button v-else @click="disconnectWebSocket" class="disconnect-btn">断开</button>
-            <button @click="loadMessageHistory" class="history-btn" :disabled="!username">加载历史</button>
+            <button @click="loadMessageHistory" class="history-btn">加载历史</button>
           </div>
           <div class="message-section">
             <div class="input-area">
               <h2>发送消息</h2>
               <div class="receiver-input">
                 <label>接收者 (留空则广播):</label>
-                <input v-model="messageReceiver" placeholder="输入用户名或留空" />
+                <input v-model="messageReceiver" placeholder="输入接收者用户名..." />
               </div>
               <textarea v-model="messageToSend" placeholder="在此输入要发送的消息..."></textarea>
               <div class="send-options">
@@ -60,29 +57,28 @@
                   发送前进行哈夫曼编码
                 </label>
               </div>
-              <button @click="sendMessage" :disabled="!isConnected || !messageToSend.trim()" class="action-button">
+              <button @click="sendMessage" class="action-button" :disabled="!isConnected || !messageToSend.trim()">
                 发送消息
               </button>
             </div>
             <div class="received-area">
               <h2>消息记录</h2>
               <div class="message-tabs">
-                <button @click="messageTab = 'all'" :class="{ active: messageTab === 'all' }">全部</button>
-                <button @click="messageTab = 'sent'" :class="{ active: messageTab === 'sent' }">已发送</button>
-                <button @click="messageTab = 'received'" :class="{ active: messageTab === 'received' }">已接收</button>
+                <button :class="{ active: messageTab === 'all' }" @click="messageTab = 'all'">全部</button>
+                <button :class="{ active: messageTab === 'sent' }" @click="messageTab = 'sent'">已发送</button>
+                <button :class="{ active: messageTab === 'received' }" @click="messageTab = 'received'">已接收</button>
               </div>
-              <div v-if="filteredMessages.length === 0" class="placeholder">
-                <span class="placeholder-icon">💬</span>
-                <span>暂无消息</span>
-              </div>
-              <div v-else class="messages-list">
-                <div v-for="(msg, index) in filteredMessages" :key="index"
-                     :class="['message-item', getMsgClass(msg)]">
+              <div class="messages-list">
+                <div v-if="filteredMessages.length === 0" class="placeholder">
+                  <div class="placeholder-icon">💬</div>
+                  <p>暂无消息</p>
+                </div>
+                <div v-else v-for="msg in filteredMessages" :key="msg.id" :class="['message-item', getMsgClass(msg)]">
                   <div class="message-header">
                     <span class="message-sender">{{ msg.sender }}</span>
-                    <span class="message-time">{{ formatTime(msg.timestamp || msg.time || msg.createdAt) }}</span>
+                    <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                   </div>
-                  <div class="message-content">{{ msg.message || msg.content }}</div>
+                  <div class="message-content">{{ msg.message }}</div>
                 </div>
               </div>
             </div>
@@ -98,8 +94,8 @@
         </header>
         <div class="history-panel">
           <div v-if="historyList.length === 0" class="placeholder">
-            <span class="placeholder-icon">📂</span>
-            <span>暂无历史记录</span>
+            <div class="placeholder-icon">📋</div>
+            <p>暂无历史记录</p>
           </div>
           <div v-else class="history-list">
             <div v-for="(item, index) in historyList" :key="index" class="history-item">
@@ -109,17 +105,17 @@
               </div>
               <div class="history-content">
                 <div class="history-original"><strong>原文:</strong> {{ item.original }}</div>
-                <div class="history-encoded"><strong>处理后:</strong> {{ item.encoded }}</div>
+                <div class="history-encoded"><strong>结果:</strong> {{ item.encoded }}</div>
               </div>
             </div>
           </div>
           <button v-if="historyList.length > 0" @click="clearHistory" class="clear-btn">
-            清空历史记录
+            清空历史
           </button>
         </div>
       </div>
 
-      <!-- 哈夫曼编码译码页面 (默认) -->
+      <!-- 哈夫曼编码译码页面 -->
       <div v-else class="page-content">
         <header class="content-header">
           <h1>哈夫曼编码/解码器</h1>
@@ -132,54 +128,47 @@
         </div>
         <div v-if="activeTab === 'encode'" class="coder-panel">
           <div class="input-section">
-            <h2>输入</h2>
+            <h2>输入文本</h2>
             <div class="textarea-wrapper">
               <textarea v-model="textToEncode" placeholder="在此输入要编码的文本..."></textarea>
             </div>
-            <button @click="handleEncode" :disabled="isLoading" class="action-button">
-              {{ isLoading ? '编码中...' : '执行编码' }}
+            <button @click="handleEncode" class="action-button" :disabled="isLoading">
+              {{ isLoading ? '编码中...' : '开始编码' }}
             </button>
           </div>
           <div class="output-section">
-            <h2>输出</h2>
-            <div v-if="isLoading" class="loading-spinner"></div>
-            <div v-else-if="!encodeResult" class="placeholder">
-              <span class="placeholder-icon">📊</span>
-              <span>等待编码结果...</span>
-            </div>
-            <div v-else class="result-content">
-              <div class="output-tabs">
-                <button @click="outputTab = 'codes'" :class="{ active: outputTab === 'codes' }">哈夫曼编码</button>
-                <button @click="outputTab = 'freq'" :class="{ active: outputTab === 'freq' }">字符频率</button>
+            <h2>编码结果</h2>
+            <div class="result-content">
+              <div v-if="!encodeResult" class="placeholder">
+                <div class="placeholder-icon">📊</div>
+                <p>编码结果将在这里显示</p>
               </div>
-              <div class="output-content">
-                <div v-if="outputTab === 'codes'" class="result-display">
-                  <div class="result-item">
+              <div v-else class="result-display">
+                <div class="output-tabs">
+                  <button :class="{ active: outputTab === 'codes' }" @click="outputTab = 'codes'">编码表</button>
+                  <button :class="{ active: outputTab === 'encoded' }" @click="outputTab = 'encoded'">编码结果</button>
+                  <button :class="{ active: outputTab === 'freq' }" @click="outputTab = 'freq'">字符频率</button>
+                </div>
+                <div class="output-content">
+                  <div v-if="outputTab === 'codes'" class="result-item">
                     <div class="result-header">
-                      <h3>编码后的文本</h3>
+                      <h3>哈夫曼编码表</h3>
                       <div class="btn-group">
-                        <button @click="copyToClipboard(encodeResult.encodedText)" class="copy-btn primary">复制</button>
-                      </div>
-                    </div>
-                    <pre class="code-box">{{ encodeResult.encodedText }}</pre>
-                  </div>
-                  <div class="result-item">
-                    <div class="result-header">
-                      <h3>哈夫曼编码表 (JSON)</h3>
-                      <div class="btn-group">
-                        <button @click="copyToClipboard(JSON.stringify(encodeResult.codes, null, 2))" class="copy-btn">复制</button>
+                        <button class="copy-btn primary" @click="copyToClipboard(JSON.stringify(encodeResult.codes))">复制JSON</button>
                       </div>
                     </div>
                     <pre class="code-box">{{ formatCodes(encodeResult.codes) }}</pre>
                   </div>
-                </div>
-                <div v-if="outputTab === 'freq'" class="result-display">
-                  <div class="result-item">
+                  <div v-if="outputTab === 'encoded'" class="result-item">
                     <div class="result-header">
-                      <h3>字符频率</h3>
-                      <div class="btn-group">
-                        <button @click="copyToClipboard(JSON.stringify(encodeResult.frequencies, null, 2))" class="copy-btn">复制</button>
-                      </div>
+                      <h3>编码后的文本</h3>
+                      <button class="copy-btn" @click="copyToClipboard(encodeResult.encodedText)">复制</button>
+                    </div>
+                    <pre class="code-box">{{ encodeResult.encodedText }}</pre>
+                  </div>
+                  <div v-if="outputTab === 'freq'" class="result-item">
+                    <div class="result-header">
+                      <h3>字符频率统计</h3>
                     </div>
                     <pre class="code-box">{{ formatFrequencies(encodeResult.frequencies) }}</pre>
                   </div>
@@ -190,33 +179,30 @@
         </div>
         <div v-if="activeTab === 'decode'" class="coder-panel">
           <div class="input-section">
-            <h2>输入</h2>
+            <h2>输入编码</h2>
             <div class="textarea-wrapper">
-              <textarea v-model="textToDecode" placeholder="在此输入要解码的二进制字符串..."></textarea>
+              <textarea v-model="textToDecode" placeholder="在此输入要解码的二进制文本..."></textarea>
             </div>
             <div class="codes-input">
-              <h3>哈夫曼编码表 (JSON格式)</h3>
-              <textarea v-model="codesForDecode" placeholder='例如：&#10;{&#10;  "a": "01",&#10;  "b": "11",&#10;  "c": "001"&#10;}'></textarea>
+              <h3>编码表 (JSON格式)</h3>
+              <textarea v-model="codesForDecode" placeholder='{"a": "00", "b": "01", ...}'></textarea>
             </div>
-            <button @click="handleDecode" :disabled="isDecoding" class="action-button">
-              {{ isDecoding ? '解码中...' : '执行解码' }}
+            <button @click="handleDecode" class="action-button" :disabled="isDecoding">
+              {{ isDecoding ? '解码中...' : '开始解码' }}
             </button>
           </div>
           <div class="output-section">
-            <h2>输出</h2>
-            <div v-if="isDecoding" class="loading-spinner"></div>
-            <div v-else-if="!decodeResult" class="placeholder">
-              <span class="placeholder-icon">📜</span>
-              <span>等待解码结果...</span>
-            </div>
-            <div v-else class="result-content">
-              <div class="result-display">
+            <h2>解码结果</h2>
+            <div class="result-content">
+              <div v-if="!decodeResult" class="placeholder">
+                <div class="placeholder-icon">📝</div>
+                <p>解码结果将在这里显示</p>
+              </div>
+              <div v-else class="result-display">
                 <div class="result-item">
                   <div class="result-header">
                     <h3>解码后的文本</h3>
-                    <div class="btn-group">
-                      <button @click="copyToClipboard(decodeResult)" class="copy-btn primary">复制</button>
-                    </div>
+                    <button class="copy-btn" @click="copyToClipboard(decodeResult)">复制</button>
                   </div>
                   <pre class="code-box">{{ decodeResult }}</pre>
                 </div>
@@ -225,14 +211,13 @@
           </div>
         </div>
 
-        <!-- 树可视化页面 -->
         <div v-if="activeTab === 'tree'" class="tree-panel">
           <div class="tree-toolbar">
-            <span>使用鼠标滚轮缩放，拖动平移</span>
-            <button @click="retryRender" class="retry-btn">重试</button>
-            <button @click="zoomIn" class="zoom-btn">放大</button>
-            <button @click="zoomOut" class="zoom-btn">缩小</button>
-            <button @click="resetZoom" class="zoom-btn">重置</button>
+            <button class="zoom-btn" @click="zoomOut">-</button>
+            <span>缩放: {{ Math.round(scale * 100) }}%</span>
+            <button class="zoom-btn" @click="zoomIn">+</button>
+            <button class="zoom-btn" @click="resetZoom">重置</button>
+            <button class="retry-btn" @click="retryRender">重新渲染</button>
           </div>
           <div class="tree-container">
             <div v-if="isTreeLoading" class="tree-loading">
@@ -240,24 +225,22 @@
               <p>正在渲染哈夫曼树...</p>
             </div>
             <div v-else-if="renderError" class="error-msg">
-              <p><strong>图形渲染遇到问题:</strong></p>
+              <p><strong>渲染失败:</strong></p>
               <p>{{ renderError }}</p>
             </div>
-            <div
-              ref="graphContainer"
-              class="graph-container"
-              @wheel.prevent="handleWheel"
-              @mousedown="startDrag"
-              @mousemove="onDrag"
-              @mouseup="endDrag"
-              @mouseleave="endDrag"
-            >
-              <div
-                ref="svgWrapper"
-                class="svg-wrapper"
-                :style="transformStyle"
-                v-html="svgContent"
-              ></div>
+            <div v-else-if="svgContent"
+                 ref="graphContainer"
+                 class="graph-container"
+                 @wheel.prevent="handleWheel"
+                 @mousedown="startDrag"
+                 @mousemove="onDrag"
+                 @mouseup="endDrag"
+                 @mouseleave="endDrag">
+              <div ref="svgWrapper" class="svg-wrapper" :style="transformStyle" v-html="svgContent"></div>
+            </div>
+            <div v-else class="placeholder">
+              <div class="placeholder-icon">🌳</div>
+              <p>请先进行编码操作</p>
             </div>
           </div>
         </div>
@@ -321,16 +304,13 @@ const dragStartY = ref(0);
 const lastTranslateX = ref(0);
 const lastTranslateY = ref(0);
 
-// Viz.js 实例
 let vizInstance = null;
 
-// 计算变换样式
 const transformStyle = computed(() => ({
   transform: `translate(${translateX.value}px, ${translateY.value}px) scale(${scale.value})`,
   transformOrigin: 'center center'
 }));
 
-// 过滤消息
 const filteredMessages = computed(() => {
   if (messageTab.value === 'sent') {
     return receivedMessages.value.filter(msg => msg.sender === username.value);
@@ -340,7 +320,6 @@ const filteredMessages = computed(() => {
   return receivedMessages.value;
 });
 
-// 获取消息样式类
 const getMsgClass = (msg) => {
   if (msg.type === 'JOIN' || msg.type === 'LEAVE') {
     return 'system';
@@ -351,7 +330,6 @@ const getMsgClass = (msg) => {
   return 'received';
 };
 
-// 格式化时间
 const formatTime = (timestamp) => {
   if (!timestamp) return '';
   try {
@@ -370,8 +348,19 @@ const formatTime = (timestamp) => {
 // --- 生命周期钩子 ---
 onMounted(async () => {
   const storedUsername = localStorage.getItem('username');
+  const storedUser = localStorage.getItem('user');
+
   if (storedUsername) {
     username.value = storedUsername;
+  } else if (storedUser) {
+    try {
+      const userObj = JSON.parse(storedUser);
+      username.value = userObj.username || userObj.name || 'User';
+      localStorage.setItem('username', username.value);
+    } catch (e) {
+      username.value = storedUser;
+      localStorage.setItem('username', username.value);
+    }
   }
 
   const savedHistory = localStorage.getItem('huffmanHistory');
@@ -379,7 +368,6 @@ onMounted(async () => {
     historyList.value = JSON.parse(savedHistory);
   }
 
-  // 预加载 Viz.js
   await initViz();
 });
 
@@ -389,7 +377,6 @@ onUnmounted(() => {
   }
 });
 
-// 初始化 Viz.js
 const initViz = async () => {
   try {
     const { instance } = await import('@viz-js/viz');
@@ -400,7 +387,6 @@ const initViz = async () => {
   }
 };
 
-// 监听标签页切换
 watch([activeTab, encodeResult], async ([newTab, newResult]) => {
   if (newTab === 'tree' && newResult && newResult.treeDot) {
     renderError.value = '';
@@ -409,7 +395,6 @@ watch([activeTab, encodeResult], async ([newTab, newResult]) => {
   }
 });
 
-// --- 树渲染方法 (使用 Viz.js) ---
 const renderTree = async (dotString) => {
   if (!dotString) {
     renderError.value = '没有可渲染的数据';
@@ -426,7 +411,7 @@ const renderTree = async (dotString) => {
     }
 
     if (!vizInstance) {
-      throw new Error('Viz.js 初始化失败，请刷新页面重试');
+      throw new Error('Viz.js 未能初始化');
     }
 
     const svg = vizInstance.renderSVGElement(dotString);
@@ -437,8 +422,6 @@ const renderTree = async (dotString) => {
 
     svgContent.value = svg.outerHTML;
     resetZoom();
-
-    console.log('哈夫曼树渲染成功');
   } catch (error) {
     console.error('渲染失败:', error);
     renderError.value = error.message || '渲染失败，请重试';
@@ -455,7 +438,6 @@ const retryRender = () => {
   }
 };
 
-// --- 缩放和拖拽方法 ---
 const handleWheel = (event) => {
   const delta = event.deltaY > 0 ? -0.1 : 0.1;
   const newScale = Math.max(0.1, Math.min(3, scale.value + delta));
@@ -496,18 +478,16 @@ const endDrag = () => {
   isDragging.value = false;
 };
 
-// --- 复制到剪贴板方法 ---
 const copyToClipboard = async (text) => {
   try {
     await navigator.clipboard.writeText(text);
     alert('已复制到剪贴板');
   } catch (err) {
     console.error('复制失败:', err);
-    alert('复制失败，您的浏览器可能不支持或未授权。');
+    alert('复制失败');
   }
 };
 
-// --- 编码方法 ---
 const handleEncode = async () => {
   if (!textToEncode.value.trim()) {
     alert('请输入要编码的文本！');
@@ -520,7 +500,7 @@ const handleEncode = async () => {
 
   try {
     const response = await axios.post('/api/huffman/process', {
-      text: textToEncode.value,
+      text: textToEncode.value
     });
     encodeResult.value = response.data;
     addToHistory('编码', textToEncode.value, response.data.encodedText);
@@ -532,7 +512,6 @@ const handleEncode = async () => {
   }
 };
 
-// --- 解码方法 ---
 const handleDecode = async () => {
   if (!textToDecode.value.trim() || !codesForDecode.value.trim()) {
     alert('请输入编码文本和编码表！');
@@ -553,7 +532,7 @@ const handleDecode = async () => {
   try {
     const response = await axios.post('/api/huffman/decode', {
       encodedText: textToDecode.value,
-      codes: codes,
+      codes: codes
     });
     decodeResult.value = response.data.decodedText;
     addToHistory('解码', textToDecode.value, response.data.decodedText);
@@ -578,16 +557,30 @@ const connectWebSocket = () => {
       // 订阅公共消息
       stompClient.subscribe('/topic/messages', (message) => {
         const msg = JSON.parse(message.body);
-        receivedMessages.value.unshift(msg);
+        console.log('收到公共消息:', msg);
+        // 避免重复添加自己发送的消息
+        if (msg.sender !== username.value || msg.type === 'JOIN' || msg.type === 'LEAVE') {
+          receivedMessages.value.unshift({
+            id: msg.id || Date.now(),
+            sender: msg.sender,
+            message: msg.message,
+            timestamp: msg.timestamp,
+            type: msg.type || 'MESSAGE'
+          });
+        }
       });
 
       // 订阅私人消息
       stompClient.subscribe(`/user/${username.value}/queue/private`, (message) => {
         const msg = JSON.parse(message.body);
-        // 避免重复添加
-        if (!receivedMessages.value.find(m => m.id === msg.id)) {
-          receivedMessages.value.unshift(msg);
-        }
+        console.log('收到私人消息:', msg);
+        receivedMessages.value.unshift({
+          id: msg.id || Date.now(),
+          sender: msg.sender,
+          message: msg.message,
+          timestamp: msg.timestamp,
+          type: 'PRIVATE'
+        });
       });
 
       // 通知服务器用户加入
@@ -602,6 +595,7 @@ const connectWebSocket = () => {
     },
     onStompError: (frame) => {
       console.error('STOMP 错误:', frame);
+      isConnected.value = false;
     }
   });
   stompClient.activate();
@@ -609,7 +603,6 @@ const connectWebSocket = () => {
 
 const disconnectWebSocket = () => {
   if (stompClient) {
-    // 通知服务器用户离开
     stompClient.publish({
       destination: '/app/leave',
       body: JSON.stringify({ username: username.value })
@@ -626,12 +619,15 @@ const sendMessage = async () => {
 
   if (encodeBeforeSend.value) {
     try {
-      const response = await axios.post('/api/huffman/process', { text: originalMessage });
-      messageContent = `[哈夫曼编码]: ${response.data.encodedText}`;
-      addToHistory('发送 (编码)', originalMessage, response.data.encodedText);
+      const response = await axios.post('/api/huffman/process', {
+        text: messageToSend.value
+      });
+      messageContent = response.data.encodedText;
+      addToHistory('发送(编码)', originalMessage, messageContent);
     } catch (error) {
-      alert('发送前编码失败，将以原文发送。');
-      addToHistory('发送', originalMessage, originalMessage);
+      console.error('编码失败:', error);
+      alert('编码失败');
+      return;
     }
   } else {
     addToHistory('发送', originalMessage, originalMessage);
@@ -647,18 +643,33 @@ const sendMessage = async () => {
     })
   });
 
+  // 本地立即添加已发送的消息
+  receivedMessages.value.unshift({
+    id: Date.now(),
+    sender: username.value,
+    message: messageContent,
+    timestamp: new Date().toISOString(),
+    type: messageReceiver.value ? 'PRIVATE' : 'MESSAGE'
+  });
+
   messageToSend.value = '';
 };
 
-// 加载消息历史
 const loadMessageHistory = async () => {
   try {
     const response = await axios.get(`/api/messages/history/${username.value}`);
-    // 将历史消息添加到列表（避免重复）
     const existingIds = new Set(receivedMessages.value.map(m => m.id));
-    const newMessages = response.data.filter(m => !existingIds.has(m.id));
-    receivedMessages.value = [...receivedMessages.value, ...newMessages].sort((a, b) => {
-      return new Date(b.createdAt || b.timestamp) - new Date(a.createdAt || a.timestamp);
+    const newMessages = response.data
+      .filter(m => !existingIds.has(m.id))
+      .map(m => ({
+        id: m.id,
+        sender: m.sender,
+        message: m.content,
+        timestamp: m.createdAt,
+        type: m.messageType
+      }));
+    receivedMessages.value = [...newMessages, ...receivedMessages.value].sort((a, b) => {
+      return new Date(b.timestamp) - new Date(a.timestamp);
     });
   } catch (error) {
     console.error('加载历史失败:', error);
@@ -666,7 +677,6 @@ const loadMessageHistory = async () => {
   }
 };
 
-// --- 历史记录方法 ---
 const addToHistory = (type, original, processed) => {
   const item = {
     type,
@@ -688,7 +698,6 @@ const clearHistory = () => {
   }
 };
 
-// --- 格式化方法 ---
 const formatFrequencies = (frequencies) => {
   if (!frequencies) return '';
   return Object.entries(frequencies)
@@ -703,7 +712,6 @@ const formatCodes = (codes) => {
     .join(',\n');
 };
 
-// --- 登出方法 ---
 const logout = () => {
   localStorage.removeItem('username');
   localStorage.removeItem('user');
@@ -715,7 +723,6 @@ const logout = () => {
 </script>
 
 <style>
-/* 强制全局重置 */
 body, html {
   margin: 0 !important;
   padding: 0 !important;
@@ -729,14 +736,12 @@ body, html {
 </style>
 
 <style scoped>
-/* 1.主容器布局 */
 .main-app-container {
   width: 100vw;
   height: 100vh;
   display: flex;
 }
 
-/* 2. 左侧导航栏 */
 .sidebar {
   width: 220px;
   flex-shrink: 0;
@@ -826,7 +831,6 @@ body, html {
   color: white;
 }
 
-/* 3.右侧主内容区 */
 .main-content {
   flex: 1;
   display: flex;
@@ -848,7 +852,6 @@ body, html {
   box-sizing: border-box;
 }
 
-/* 头部样式 */
 .content-header {
   text-align: center;
   margin-bottom: 24px;
@@ -868,7 +871,6 @@ body, html {
   margin: 0;
 }
 
-/* 标签页样式 */
 .tool-tabs {
   display: flex;
   justify-content: center;
@@ -901,16 +903,11 @@ body, html {
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
-.tab-button.tree-tab {
-  padding: 12px 24px;
-}
-
 .tab-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-/* 编码器/发送/历史 面板布局 */
 .coder-panel, .send-panel, .history-panel {
   flex-grow: 1;
   display: flex;
@@ -1003,11 +1000,6 @@ body, html {
   flex-shrink: 0;
 }
 
-.codes-input textarea {
-  min-height: 80px;
-  flex-grow: 1;
-}
-
 .action-button {
   width: 100%;
   padding: 14px;
@@ -1034,7 +1026,6 @@ body, html {
   box-shadow: none;
 }
 
-/* 结果区样式 */
 .result-content {
   flex-grow: 1;
   overflow-y: auto;
@@ -1114,10 +1105,6 @@ body, html {
   color: #667eea;
 }
 
-.copy-btn.primary:hover {
-  background-color: #34495e;
-}
-
 .code-box {
   background-color: #1a1a2e;
   padding: 14px;
@@ -1126,8 +1113,6 @@ body, html {
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 13px;
   color: #4ecca3;
-  display: block;
-  flex: none;
   max-height: 180px;
   overflow-y: auto;
   word-break: break-all;
@@ -1135,22 +1120,6 @@ body, html {
   line-height: 1.6;
 }
 
-/* 自定义滚动条样式 */
-.code-box::-webkit-scrollbar, .result-display::-webkit-scrollbar, .output-content::-webkit-scrollbar {
-  width: 8px;
-}
-.code-box::-webkit-scrollbar-track, .result-display::-webkit-scrollbar-track, .output-content::-webkit-scrollbar-track {
-  background: transparent;
-}
-.code-box::-webkit-scrollbar-thumb, .result-display::-webkit-scrollbar-thumb, .output-content::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 4px;
-}
-.code-box::-webkit-scrollbar-thumb:hover, .result-display::-webkit-scrollbar-thumb:hover, .output-content::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-/* 输出区导航栏样式 */
 .output-tabs {
   display: flex;
   gap: 8px;
@@ -1158,6 +1127,7 @@ body, html {
   border-bottom: 1px solid #333;
   flex-shrink: 0;
 }
+
 .output-tabs button {
   padding: 8px 16px;
   border: none;
@@ -1168,17 +1138,18 @@ body, html {
   border-bottom: 2px solid transparent;
   font-size: 14px;
 }
+
 .output-tabs button.active {
   color: #667eea;
   border-bottom-color: #667eea;
 }
+
 .output-content {
   flex-grow: 1;
   min-height: 0;
   overflow-y: auto;
 }
 
-/* 树面板 */
 .tree-panel {
   flex-grow: 1;
   display: flex;
@@ -1196,7 +1167,6 @@ body, html {
   justify-content: center;
   gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 .retry-btn, .zoom-btn {
@@ -1227,7 +1197,6 @@ body, html {
   overflow: hidden;
 }
 
-/* Graph Container */
 .graph-container {
   width: 100%;
   height: 100%;
@@ -1249,22 +1218,12 @@ body, html {
   justify-content: center;
 }
 
-/* 树加载状态 */
 .tree-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #888;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.tree-loading p {
-  margin-top: 16px;
-  font-size: 14px;
 }
 
 .error-msg {
@@ -1274,19 +1233,8 @@ body, html {
   border-radius: 8px;
   border: 1px solid rgba(231, 76, 60, 0.3);
   max-width: 80%;
-  text-align: left;
-  word-break: break-word;
 }
 
-.error-msg p {
-  margin: 0 0 8px 0;
-}
-
-.error-msg p:last-child {
-  margin-bottom: 0;
-}
-
-/* 发送页面样式 */
 .connection-status {
   display: flex;
   align-items: center;
@@ -1308,10 +1256,6 @@ body, html {
 .status-dot.connected {
   background-color: #27ae60;
   box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
-}
-
-.connection-status span {
-  color: #fff;
 }
 
 .connect-btn, .disconnect-btn {
@@ -1361,7 +1305,6 @@ body, html {
   accent-color: #667eea;
 }
 
-/* 消息页面额外样式 */
 .receiver-input {
   margin-bottom: 12px;
 }
@@ -1402,13 +1345,8 @@ body, html {
   transition: all 0.3s;
 }
 
-.history-btn:hover:not(:disabled) {
+.history-btn:hover {
   background: rgba(102, 126, 234, 0.1);
-}
-
-.history-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .message-tabs {
@@ -1501,7 +1439,6 @@ body, html {
   color: #e0e0e0;
 }
 
-/* 历史页面样式 */
 .history-list {
   display: flex;
   flex-direction: column;
@@ -1568,7 +1505,6 @@ body, html {
   color: white;
 }
 
-/* 加载动画 */
 .loading-spinner {
   margin: 40px auto;
   border: 3px solid #333;
@@ -1584,7 +1520,6 @@ body, html {
   100% { transform: rotate(360deg); }
 }
 
-/* SVG 深色主题样式 */
 .svg-wrapper :deep(svg) {
   max-width: 100%;
   max-height: 100%;
@@ -1599,8 +1534,7 @@ body, html {
 }
 
 .svg-wrapper :deep(.node polygon),
-.svg-wrapper :deep(.node ellipse),
-.svg-wrapper :deep(.node path) {
+.svg-wrapper :deep(.node ellipse) {
   fill: #2a2a4a !important;
   stroke: #667eea !important;
 }

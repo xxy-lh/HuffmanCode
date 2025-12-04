@@ -60,8 +60,8 @@ async function handleLogin() {
       throw new Error(data.message || '登录失败');
     }
 
-    // 登录成功，存储用户信息并跳转
-    localStorage.setItem('user', JSON.stringify({ username: data.username }));
+    // 修复：直接存储用户名字符串，而不是 JSON 对象
+    localStorage.setItem('username', data.username || username.value);
     await router.push('/app');
 
   } catch (error) {
