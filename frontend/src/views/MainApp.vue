@@ -540,7 +540,7 @@ const connectWebSocket = () => {
         const msg = JSON.parse(message.body);
         receivedMessages.value.push(msg);
       });
-      stompClient.subscribe(`/user/${username.value}/queue/private`, (message) => {
+      stompClient.subscribe(`/topic/private.${username.value}`, (message) => {
         const msg = JSON.parse(message.body);
         receivedMessages.value.push(msg);
       });

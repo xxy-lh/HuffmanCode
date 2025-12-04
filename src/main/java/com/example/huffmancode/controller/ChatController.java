@@ -35,8 +35,15 @@ public class ChatController {
         response.put("encoded", encoded != null && encoded);
 
         if (receiver != null && !receiver.isEmpty()) {
-            messagingTemplate.convertAndSendToUser(receiver, "/queue/private", response);
+            // 私聊：发送给接收者
+            response.put("receiver", receiver);
+            response.put("isPrivate", true);
+
+            // 发送给接收者
+            messagingTemplate.convertAndSend("/topic/private." + receiver, response);
         } else {
+            // 群发
+            response.put("isPrivate", false);
             messagingTemplate.convertAndSend("/topic/messages", response);
         }
     }
