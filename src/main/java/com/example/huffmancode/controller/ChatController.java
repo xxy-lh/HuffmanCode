@@ -1,5 +1,7 @@
 package com.example.huffmancode.controller;
 
+import com.example.huffmancode.model.ChatMessage;
+import com.example.huffmancode.repository.ChatMessageRepository;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -13,9 +15,12 @@ import java.util.Map;
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
+    private final ChatMessageRepository chatMessageRepository;
 
-    public ChatController(SimpMessagingTemplate messagingTemplate) {
+    public ChatController(SimpMessagingTemplate messagingTemplate,
+                          ChatMessageRepository chatMessageRepository) {
         this.messagingTemplate = messagingTemplate;
+        this.chatMessageRepository = chatMessageRepository;
     }
 
     @MessageMapping("/send")
@@ -26,23 +31,28 @@ public class ChatController {
         String receiver = (String) payload.get("receiver");
         Boolean encoded = (Boolean) payload.get("encoded");
 
+        // 保存消息到数据库
+        ChatMessage chatMessage = new ChatMessage();
+        chatMessage.setSender(sender);
+        chatMessage.setReceiver(receiver);
+        chatMessage.setContent(message);
+        chatMessage.setMessageType(encoded != null && encoded ? "ENCODED" : "SEND");
+        chatMessageRepository.save(chatMessage);
+
         Map<String, Object> response = new HashMap<>();
+        response.put("id", chatMessage.getId());
         response.put("sender", sender);
         response.put("message", message);
         response.put("originalMessage", originalMessage);
-        response.put("timestamp", LocalDateTime.now().toString());
+        response.put("timestamp", chatMessage.getCreatedAt().toString());
         response.put("type", "MESSAGE");
         response.put("encoded", encoded != null && encoded);
 
         if (receiver != null && !receiver.isEmpty()) {
-            // 私聊：发送给接收者
             response.put("receiver", receiver);
             response.put("isPrivate", true);
-
-            // 发送给接收者
             messagingTemplate.convertAndSend("/topic/private." + receiver, response);
         } else {
-            // 群发
             response.put("isPrivate", false);
             messagingTemplate.convertAndSend("/topic/messages", response);
         }
