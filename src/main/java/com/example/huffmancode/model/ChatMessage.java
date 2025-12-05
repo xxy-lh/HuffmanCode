@@ -1,7 +1,7 @@
 package com.example.huffmancode.model;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.time.LocalDateTime; // 导入LocalDateTime类，用于存储消息的创建时间
 
 @Entity
 @Table(name = "chat_messages")
@@ -16,7 +16,7 @@ public class ChatMessage {
 
     private String receiver;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT") // 允许存储较长的消息内容
     private String content;
 
     @Column(name = "message_type")
