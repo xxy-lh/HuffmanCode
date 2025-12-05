@@ -1,9 +1,9 @@
-package com.example.huffmancode.repository;
+    package com.example.huffmancode.repository;
 
-import com.example.huffmancode.model.User;
-import org.springframework.data.jpa.repository.JpaRepository;
-import java.util.Optional;
+    import com.example.huffmancode.model.User;
+    import org.springframework.data.jpa.repository.JpaRepository; // Spring Data JPA 提供的基础仓库接口
+    import java.util.Optional; // 用于处理可能为空的返回值
 
-public interface UserRepository extends JpaRepository<User, Long> {
-    Optional<User> findByUsername(String username);
-}
+    public interface UserRepository extends JpaRepository<User, Long> {
+        Optional<User> findByUsername(String username);
+    }
