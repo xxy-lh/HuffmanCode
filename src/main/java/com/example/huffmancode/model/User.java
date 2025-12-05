@@ -9,7 +9,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY) // 主键自动生成，数据库自增策略
     private Long id;
 
-    @Column(unique = true, nullable = false) // 用户名唯一且不能为空
+    @Column(unique = true, nullable = false) // 用户名唯一且不能为空，定义字段与数据库列的映射关系
     private String username;
 
     @Column(nullable = false)
