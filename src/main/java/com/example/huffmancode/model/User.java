@@ -1,25 +1,25 @@
 package com.example.huffmancode.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.*; // 导入所有JPA注解
 
-@Entity
-@Table(name = "users")
+@Entity // 标记是一个JPA实体
+@Table(name = "users") // 映射到数据库中的users表
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // 主键自动生成，数据库自增策略
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(unique = true, nullable = false) // 用户名唯一且不能为空
     private String username;
 
     @Column(nullable = false)
     private String password;
 
-    @Column(name = "plain_password") // 新增列，用于存储明文密码
+    @Column(name = "plain_password") // 用于存储明文密码
     private String plainPassword;
 
     public User() {
-    }
+    } // 无参构造，JPA必需
 
     public User(String username, String password) {
         this.username = username;
