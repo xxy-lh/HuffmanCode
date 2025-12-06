@@ -2,8 +2,8 @@ package com.example.huffmancode.repository;
 
 import com.example.huffmancode.model.ChatMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Query; // 自定义查询注解，方法名派生不够用时手写JPQL/SQL
+import org.springframework.data.repository.query.Param; // 用于在自定义查询中绑定参数
 import java.util.List;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
