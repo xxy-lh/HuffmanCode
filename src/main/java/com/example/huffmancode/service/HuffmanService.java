@@ -151,10 +151,12 @@ public class HuffmanService {
 
         if (node.getLeft() != null) {
             String leftId = generateDotRecursive(node.getLeft(), dot);
+            // 添加边，标记为0（左子节点）
             dot.append(String.format("    %s:f0 -> %s:f0 [label=\"0\"];\n", myId, leftId));
         }
         if (node.getRight() != null) {
             String rightId = generateDotRecursive(node.getRight(), dot);
+            // 添加边，标记为1（右子节点）
             dot.append(String.format("    %s:f0 -> %s:f0 [label=\"1\"];\n", myId, rightId));
         }
         return myId;
