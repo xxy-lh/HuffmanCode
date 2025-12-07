@@ -1,7 +1,7 @@
 package com.example.huffmancode.service;
 
 import com.example.huffmancode.model.HuffmanNode;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Service; // Spring的服务注解
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,6 +26,7 @@ public class HuffmanService {
     public HuffmanNode buildTree(Map<Character, Integer> freqMap) {
         PriorityQueue<HuffmanNode> pq = new PriorityQueue<>();
         for (Map.Entry<Character, Integer> entry : freqMap.entrySet()) {
+            // entrySet()返回包含映射中所有键值对的Set视图
             pq.add(new HuffmanNode(entry.getKey(), entry.getValue()));
         }
 
