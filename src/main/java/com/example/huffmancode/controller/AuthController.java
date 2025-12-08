@@ -4,7 +4,7 @@ import com.example.huffmancode.model.User;
 import com.example.huffmancode.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder; // 用于密码加密和匹配
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;

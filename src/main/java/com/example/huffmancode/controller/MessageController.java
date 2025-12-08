@@ -18,7 +18,7 @@ public class MessageController {
     }
 
     @GetMapping("/history/{username}")
-    public ResponseEntity<List<ChatMessage>> getMessageHistory(@PathVariable String username) {
+    public ResponseEntity<List<ChatMessage>> getMessageHistory(@PathVariable String username) { // 从URL路径中获取用户名
         List<ChatMessage> messages = chatMessageRepository.findByUsername(username);
         return ResponseEntity.ok(messages);
     }

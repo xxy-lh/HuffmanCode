@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-@Controller
+@Controller // 用于传统 MVC 和 WebSocket 消息处理
 public class ChatController {
 
     private final SimpMessagingTemplate messagingTemplate;
@@ -39,6 +39,7 @@ public class ChatController {
         chatMessage.setMessageType(encoded != null && encoded ? "ENCODED" : "SEND");
         chatMessageRepository.save(chatMessage);
 
+        // 构建响应消息
         Map<String, Object> response = new HashMap<>();
         response.put("id", chatMessage.getId());
         response.put("sender", sender);
@@ -59,14 +60,14 @@ public class ChatController {
     }
 
     @MessageMapping("/join")
-    public void userJoin(@Payload Map<String, Object> payload) {
+    public void userJoin(@Payload Map<String, Object> payload) { // Payload提取WebSocket消息体，自动将JSON转化为Map
         String username = (String) payload.get("username");
         Map<String, Object> response = new HashMap<>();
         response.put("sender", "系统");
         response.put("message", username + " 加入了聊天");
         response.put("timestamp", LocalDateTime.now().toString());
         response.put("type", "JOIN");
-        messagingTemplate.convertAndSend("/topic/messages", response);
+        messagingTemplate.convertAndSend("/topic/messages", response); // 广播消息到指定主题
     }
 
     @MessageMapping("/leave")
