@@ -9,10 +9,10 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/**")
+        registry.addMapping("/api/**") // 对所有api开头的路径启用CORS支持
                 .allowedOrigins("http://localhost:5173")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                . allowedHeaders("*")
+                .allowedHeaders("*")
                 .allowCredentials(true);
 
         // 也为 WebSocket 添加 CORS 支持

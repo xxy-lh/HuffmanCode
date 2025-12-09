@@ -9,14 +9,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-@EnableWebSecurity
+@EnableWebSecurity // 启用Spring Security的Web安全支持
 public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable())
-                .cors(cors -> {})
+                .csrf(csrf -> csrf.disable()) // 禁用CSRF保护（适用于API）
+                .cors(cors -> {}) // 启用CORS支持
+                // 配置URL访问权限
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/huffman/**").permitAll()
@@ -29,6 +30,7 @@ public class SecurityConfig {
     }
 
     @Bean
+    // 使用BCrypt算法进行密码加密（单项哈希算法）
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
