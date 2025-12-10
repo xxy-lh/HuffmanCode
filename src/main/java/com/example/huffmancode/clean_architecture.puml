@@ -1,0 +1,113 @@
+@startuml
+
+' ==============================
+' 1. 样式配置 (模仿图3的清爽风格)
+' ==============================
+skinparam class {
+    BackgroundColor White
+    ArrowColor #333333
+    BorderColor #333333
+    AttributeIconSize 0
+}
+skinparam packageStyle rectangle
+skinparam linetype ortho
+hide empty members
+' 如果你想看方法，把上面那行 "hide methods" 删掉即可
+
+' 定义颜色块
+skinparam package {
+    BackgroundColor<<Config>> #FFDDFF
+    BackgroundColor<<Controller>> #E1F5FE
+    BackgroundColor<<Model>> #E8F5E9
+    BackgroundColor<<Repo>> #FFF9C4
+    BackgroundColor<<Service>> #F3E5F5
+}
+
+' ==============================
+' 2. 定义内容 (只写你项目里的核心类)
+' ==============================
+
+package "config" {
+    class SecurityConfig
+    class WebConfig
+    class WebSocketConfig
+}
+
+package "controller"  {
+    class AuthController {
+        + login()
+        + register()
+    }
+    class ChatController {
+        + sendMessage()
+        + addUser()
+    }
+    class HuffmanController {
+        + encode()
+        + decode()
+    }
+    class MessageController
+    class UserController
+}
+
+package "model"  {
+    class User {
+        - Long id
+        - String username
+        - String password
+        - String role
+    }
+
+    class ChatMessage {
+        - Long id
+        - String sender
+        - String content
+        - String encodedContent
+        - Map codeMap
+    }
+
+    class HuffmanNode {
+        - char data
+        - int frequency
+        - HuffmanNode left
+        - HuffmanNode right
+    }
+}
+
+package "repository"  {
+    interface UserRepository {
+        + findByUsername()
+    }
+    interface ChatMessageRepository {
+        + findBySender()
+    }
+}
+
+package "service"  {
+    class HuffmanService {
+        + buildTree(String text)
+        + generateCodes(Node root)
+        + encode(String text)
+        + decode(String text)
+    }
+}
+
+' ==============================
+' 3. 定义关系 (只画核心连线，避免乱)
+' ==============================
+
+' 控制层 -> 服务层
+HuffmanController --> HuffmanService : uses
+
+' 控制层 -> 仓库层
+AuthController ..> UserRepository
+ChatController ..> ChatMessageRepository
+
+' 仓库层 -> 模型层
+UserRepository --> User
+ChatMessageRepository --> ChatMessage
+
+' 服务层 -> 模型层 (哈夫曼树操作节点)
+HuffmanService ..> HuffmanNode : manages
+
+@enduml
